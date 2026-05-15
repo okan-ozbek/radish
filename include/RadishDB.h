@@ -15,8 +15,19 @@
 template<typename TValue>
 class RadishDB {
 public:
+    using MillisecondsType = long long;
+
     explicit RadishDB(const std::string& name)
-        : m_database{ name + ".rdh" }
+        : m_store{ -1 }
+        , m_database{ name + ".rdh" }
+        , m_recorder{ m_database }
+    {
+        Replayer<TValue>::Replay(m_store, m_database);
+    }
+
+    explicit RadishDB(const std::string& name, const MillisecondsType& ttl)
+        : m_store{ ttl }
+        , m_database{ name + ".rdh" }
         , m_recorder{ m_database }
     {
         Replayer<TValue>::Replay(m_store, m_database);
@@ -27,8 +38,8 @@ public:
     }
 
     void Set(const std::string& key, const TValue& value) {
-        m_store.Set(key, value);
-        m_recorder.Append(SET, key, value);
+        auto timestamp = m_store.Set(key, value);
+        m_recorder.Append(SET, key, value, timestamp);
     }
 
     void Delete(const std::string& key) {
@@ -41,13 +52,16 @@ public:
         m_recorder.Append(WIPE);
     }
 
-    void Print() {
-        std::cout << m_store << std::endl;
+    [[nodiscard]] bool Exists(const std::string& key) const {
+        return m_store.Exists(key);
+    }
+
+    [[nodiscard]] bool IsExpired(const std::string& key) const {
+        return m_store.IsExpired(key);
     }
 
 private:
-    Radish<TValue> m_store{};
-
+    Radish<TValue> m_store;
     std::string m_database;
     Recorder<TValue> m_recorder;
 };

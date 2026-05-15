@@ -8,11 +8,13 @@
 #include <fstream>
 #include <iosfwd>
 
-#include "Operation.h"
+#include "helpers/Operation.h"
 
 template<typename TValue>
 class Recorder {
 public:
+    using MillisecondsType = long long;
+
     explicit Recorder(const std::string& filename) {
         file.open(filename, std::ios::out | std::ios::app);
         if (file.is_open() == false) {
@@ -29,7 +31,11 @@ public:
     }
 
     void Append(const OperationType& operation, const std::string& key, const TValue& value) {
-        file << GetNameByOperationType(operation) << " " << key << " " << value << "\n";
+        file << GetNameByOperationType(operation) << " " << key << " " << "-1" << value << "\n";
+    }
+
+    void Append(const OperationType& operation, const std::string& key, const TValue& value, const MillisecondsType& ttl) {
+        file << GetNameByOperationType(operation) << " " << key << " " << ttl << " " << value << "\n";
     }
 
 private:

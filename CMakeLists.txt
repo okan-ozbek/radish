@@ -8,5 +8,7 @@ add_executable(
     include/Recorder.h
     include/Replayer.h
     include/Radish.h
-        include/Operation.h
+        include/helpers/Operation.h
+        include/Timer.h
+        include/helpers/Types.h
 )

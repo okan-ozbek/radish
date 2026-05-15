@@ -9,7 +9,7 @@
 #include <iosfwd>
 #include <sstream>
 
-#include "Operation.h"
+#include "helpers/Operation.h"
 
 template<typename TValue>
 class Radish;
@@ -17,6 +17,8 @@ class Radish;
 template<typename TValue>
 class Replayer {
 public:
+    using MillisecondsType = long long;
+
     static void Replay(Radish<TValue>& instance, const std::string& databaseName) {
         std::ifstream file{};
         file.open(databaseName, std::ios::in);
@@ -29,11 +31,12 @@ public:
         while (std::getline(file, line)) {
             std::istringstream stream(line);
             std::string operation{}, key{}, value{};
+            MillisecondsType timestamp{};
 
-            stream >> operation >> key >> value;
+            stream >> operation >> key >> timestamp >> value;
 
             OperationType type = GetOperationTypeByName(operation);
-            if (type == SET)    instance.Set(key, value);
+            if (type == SET)    instance.SetByTimestamp(key, value, timestamp);
             if (type == DELETE) instance.Delete(key);
             if (type == WIPE)   instance.Wipe();
         }
