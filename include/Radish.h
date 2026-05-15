@@ -54,6 +54,16 @@ public:
         m_data.clear();
     }
 
+    [[nodiscard]] std::vector<std::string> Scan() const {
+        std::vector<std::string> result;
+
+        for (const auto& [key, value] : m_data) {
+            result.push_back(key);
+        }
+
+        return result;
+    }
+
     [[nodiscard]] bool Exists(const std::string& key) const {
         return m_data.contains(key);
     }

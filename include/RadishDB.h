@@ -50,6 +50,10 @@ public:
         m_recorder.Append(WIPE);
     }
 
+    [[nodiscard]] std::vector<std::string> Scan() const {
+        return m_store.Scan();
+    }
+
     [[nodiscard]] bool Exists(const std::string& key) const {
         return m_store.Exists(key);
     }
