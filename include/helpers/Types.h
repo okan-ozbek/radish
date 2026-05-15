@@ -5,6 +5,6 @@
 #ifndef RADISH_TYPES_H
 #define RADISH_TYPES_H
 
-using MsType = long long;
+using MsTimestamp = long long;
 
 #endif //RADISH_TYPES_H

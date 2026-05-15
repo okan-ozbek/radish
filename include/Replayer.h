@@ -29,7 +29,7 @@ public:
         while (std::getline(file, line)) {
             std::istringstream stream(line);
             std::string operation{}, key{}, value{};
-            MsType timestamp{};
+            MsTimestamp timestamp{};
 
             stream >> operation >> key >> timestamp >> value;
 

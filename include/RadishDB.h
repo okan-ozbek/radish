@@ -23,7 +23,7 @@ public:
         Replayer<TValue>::Replay(m_store, m_database);
     }
 
-    explicit RadishDB(const std::string& name, const MsType& ttl)
+    explicit RadishDB(const std::string& name, const MsTimestamp& ttl)
         : m_store{ ttl }
         , m_database{ name + ".rdh" }
         , m_recorder{ m_database }

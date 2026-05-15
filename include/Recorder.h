@@ -32,7 +32,7 @@ public:
         TryAppend(operation, key, value, -1);
     }
 
-    void Append(const OperationType& operation, const std::string& key, const TValue& value, const MsType& ttl) {
+    void Append(const OperationType& operation, const std::string& key, const TValue& value, const MsTimestamp& ttl) {
         TryAppend(operation, key, value, ttl);
     }
 
