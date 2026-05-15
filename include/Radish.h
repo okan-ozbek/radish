@@ -46,6 +46,15 @@ public:
         m_ttlData[key] = timestamp;
     }
 
+    void Rename(const std::string& oldKey, const std::string& newKey) {
+        if (m_data.contains(oldKey) == false) {
+            return;
+        }
+
+        m_data[newKey] = m_data[oldKey];
+        m_data.erase(oldKey);
+    }
+
     void Delete(const std::string& key) {
         m_data.erase(key);
     }
@@ -58,6 +67,10 @@ public:
         std::vector<std::string> result;
 
         for (const auto& [key, value] : m_data) {
+            if (IsExpired(key)) {
+                continue;
+            }
+
             result.push_back(key);
         }
 
