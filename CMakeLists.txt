@@ -9,6 +9,5 @@ add_executable(
     include/Replayer.h
     include/Radish.h
     include/helpers/Operation.h
-    include/Timer.h
     include/helpers/Types.h
 )
