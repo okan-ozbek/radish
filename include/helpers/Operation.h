@@ -9,12 +9,14 @@ enum OperationType {
     SET,
     DELETE,
     WIPE,
+    RENAME,
 };
 
 static std::optional<OperationType> TryGetOperationTypeByName(const std::string& name) {
     if (name == "SET")    return SET;
     if (name == "DELETE") return DELETE;
     if (name == "WIPE")   return WIPE;
+    if (name == "RENAME") return RENAME;
 
     return std::nullopt;
 }
@@ -23,6 +25,7 @@ static std::optional<std::string> TryGetNameByOperationType(const OperationType&
     if (operationType == SET)    return "SET";
     if (operationType == DELETE) return "DELETE";
     if (operationType == WIPE)   return "WIPE";
+    if (operationType == RENAME) return "RENAME";
 
     return std::nullopt;
 }
