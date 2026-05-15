@@ -1,5 +1,5 @@
 //
-// Created by Dorza on 5/15/2026.
+// Created by Okan Özbek on 5/15/2026.
 //
 
 #ifndef RADISH_RADISH_H
@@ -15,9 +15,7 @@
 template<typename TValue>
 class Radish {
 public:
-    using MillisecondsType = long long;
-    
-    explicit Radish(const MillisecondsType& ttl) : m_ttl{ ttl } {}
+    explicit Radish(const MsType& ttl) : m_ttl{ ttl } {}
 
     template<typename T>
     friend std::ostream& operator<<(std::ostream& os, const Radish<T>& radish);
@@ -30,7 +28,7 @@ public:
         return std::nullopt;
     }
 
-    MillisecondsType Set(const std::string& key, const TValue& value) {
+    MsType Set(const std::string& key, const TValue& value) {
         m_data[key] = value;
 
         if (!IsTTLEnabled()) {
@@ -43,7 +41,7 @@ public:
         return timestamp;
     }
 
-    void SetByTimestamp(const std::string& key, const TValue& value, const MillisecondsType& timestamp) {
+    void SetByTimestamp(const std::string& key, const TValue& value, const MsType& timestamp) {
         m_data[key] = value;
         m_ttlData[key] = timestamp;
     }
@@ -72,16 +70,16 @@ public:
         return m_ttl != -1;
     }
 
-    [[nodiscard]] MillisecondsType GetTTL() const {
+    [[nodiscard]] MsType GetTTL() const {
         return m_ttl;
     }
 
 private:
     SystemClock m_clock{};
-    MillisecondsType m_ttl{ -1 };
+    MsType m_ttl{ -1 };
 
     std::unordered_map<std::string, TValue> m_data{};
-    std::unordered_map<std::string, MillisecondsType> m_ttlData{};
+    std::unordered_map<std::string, MsType> m_ttlData{};
 };
 
 template<typename TValue>
