@@ -58,6 +58,10 @@ public:
         return m_store.Scan();
     }
 
+    [[nodiscard]] std::size_t Size() const {
+        return m_store.Size();
+    }
+
     [[nodiscard]] bool Exists(const std::string& key) const {
         return m_store.Exists(key);
     }

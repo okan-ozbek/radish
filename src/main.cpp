@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "../include/RadishDB.h"
 
 int main() {

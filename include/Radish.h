@@ -77,6 +77,10 @@ public:
         return result;
     }
 
+    [[nodiscard]] std::size_t Size() const {
+        return m_data.size();
+    }
+
     [[nodiscard]] bool Exists(const std::string& key) const {
         if (IsExpired(key)) {
             return false;
