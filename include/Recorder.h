@@ -10,7 +10,6 @@
 
 #include "helpers/Operation.h"
 
-template<typename TValue>
 class Recorder {
 public:
     explicit Recorder(const std::string& filename) {
@@ -20,27 +19,8 @@ public:
         }
     }
 
-    void Append(const OperationType& operation) {
-        TryAppend(operation);
-    }
-
-    void Append(const OperationType& operation, const std::string& key) {
-        TryAppend(operation, key);
-    }
-
-    void Append(const OperationType& operation, const std::string& key, const TValue& value) {
-        TryAppend(operation, key, value, -1);
-    }
-
-    void Append(const OperationType& operation, const std::string& key, const TValue& value, const MsTimestamp& ttl) {
-        TryAppend(operation, key, value, ttl);
-    }
-
-private:
-    std::ofstream file{};
-
     template<typename ...TArgs>
-    void TryAppend(OperationType operation, TArgs&&... args) {
+    void TryAppend(const OperationType& operation, TArgs&&... args) {
         const auto result = TryGetNameByOperationType(operation);
         if (result == std::nullopt) {
             return;
@@ -50,6 +30,11 @@ private:
         ((file << " " << std::forward<TArgs>(args)), ...);
         file << "\n";
     }
+
+private:
+    std::ofstream file{};
+
+
 };
 
 #endif //RADISH_RECORDER_H
