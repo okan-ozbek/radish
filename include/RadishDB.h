@@ -15,8 +15,6 @@
 template<typename TValue>
 class RadishDB {
 public:
-    using MillisecondsType = long long;
-
     explicit RadishDB(const std::string& name)
         : m_store{ -1 }
         , m_database{ name + ".rdh" }
@@ -25,7 +23,7 @@ public:
         Replayer<TValue>::Replay(m_store, m_database);
     }
 
-    explicit RadishDB(const std::string& name, const MillisecondsType& ttl)
+    explicit RadishDB(const std::string& name, const MsType& ttl)
         : m_store{ ttl }
         , m_database{ name + ".rdh" }
         , m_recorder{ m_database }

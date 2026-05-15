@@ -17,8 +17,6 @@ class Radish;
 template<typename TValue>
 class Replayer {
 public:
-    using MillisecondsType = long long;
-
     static void Replay(Radish<TValue>& instance, const std::string& databaseName) {
         std::ifstream file{};
         file.open(databaseName, std::ios::in);
@@ -31,7 +29,7 @@ public:
         while (std::getline(file, line)) {
             std::istringstream stream(line);
             std::string operation{}, key{}, value{};
-            MillisecondsType timestamp{};
+            MsType timestamp{};
 
             stream >> operation >> key >> timestamp >> value;
 
