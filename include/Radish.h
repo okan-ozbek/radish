@@ -18,11 +18,7 @@ public:
     template<typename T>
     friend std::ostream& operator<<(std::ostream& os, const Radish<T>& radish);
 
-    void Insert(const std::string& key, const TValue& value) {
-        m_data[key] = value;
-    }
-
-    std::optional<TValue> Fetch(const std::string& key) {
+    std::optional<TValue> Get(const std::string& key) {
         if (m_data.contains(key)) {
             return m_data[key];
         }
@@ -30,11 +26,15 @@ public:
         return std::nullopt;
     }
 
-    void Remove(const std::string& key) {
+    void Set(const std::string& key, const TValue& value) {
+        m_data[key] = value;
+    }
+
+    void Delete(const std::string& key) {
         m_data.erase(key);
     }
 
-    void Clear() {
+    void Wipe() {
         m_data.clear();
     }
 

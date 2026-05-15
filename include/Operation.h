@@ -8,23 +8,23 @@
 #include <stdexcept>
 
 enum OperationType {
-    INSERT,
-    REMOVE,
-    CLEAR,
+    SET,
+    DELETE,
+    WIPE,
 };
 
 static OperationType GetOperationTypeByName(const std::string& name) {
-    if (name == "INSERT") return INSERT;
-    if (name == "REMOVE") return REMOVE;
-    if (name == "CLEAR") return CLEAR;
+    if (name == "SET")    return SET;
+    if (name == "DELETE") return DELETE;
+    if (name == "WIPE")   return WIPE;
 
     throw std::runtime_error("Unknown operation type");
 }
 
 static std::string GetNameByOperationType(OperationType operationType) {
-    if (operationType == INSERT) return "INSERT";
-    if (operationType == REMOVE) return "REMOVE";
-    if (operationType == CLEAR) return "CLEAR";
+    if (operationType == SET)    return "SET";
+    if (operationType == DELETE) return "DELETE";
+    if (operationType == WIPE)   return "WIPE";
 
     throw std::runtime_error("Unknown operation type");
 }

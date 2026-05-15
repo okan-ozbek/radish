@@ -33,9 +33,9 @@ public:
             stream >> operation >> key >> value;
 
             OperationType type = GetOperationTypeByName(operation);
-            if (type == INSERT) instance.Insert(key, value);
-            if (type == REMOVE) instance.Remove(key);
-            if (type == CLEAR) instance.Clear();
+            if (type == SET)    instance.Set(key, value);
+            if (type == DELETE) instance.Delete(key);
+            if (type == WIPE)   instance.Wipe();
         }
     }
 };

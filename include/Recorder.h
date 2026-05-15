@@ -20,10 +20,6 @@ public:
         }
     }
 
-    ~Recorder() {
-        file.close();
-    }
-
     void Append(const OperationType& operation) {
         file << GetNameByOperationType(operation) << "\n";
     }

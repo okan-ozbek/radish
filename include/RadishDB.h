@@ -6,6 +6,7 @@
 #define RADISH_RADISHDB_H
 
 #include <string>
+#include <iostream>
 
 #include "Radish.h"
 #include "Recorder.h"
@@ -21,19 +22,23 @@ public:
         Replayer<TValue>::Replay(m_store, m_database);
     }
 
-    void Insert(const std::string& key, const TValue& value) {
-        m_store.Insert(key, value);
-        m_recorder.Append(INSERT, key, value);
+    std::optional<TValue> Get(const std::string& key) {
+        return m_store.Get(key);
     }
 
-    void Remove(const std::string& key) {
-        m_store.Remove(key);
-        m_recorder.Append(REMOVE, key);
+    void Set(const std::string& key, const TValue& value) {
+        m_store.Set(key, value);
+        m_recorder.Append(SET, key, value);
     }
 
-    void Clear() {
-        m_store.Clear();
-        m_recorder.Append(CLEAR);
+    void Delete(const std::string& key) {
+        m_store.Delete(key);
+        m_recorder.Append(DELETE, key);
+    }
+
+    void Wipe() {
+        m_store.Wipe();
+        m_recorder.Append(WIPE);
     }
 
     void Print() {
