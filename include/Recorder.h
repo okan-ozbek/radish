@@ -21,23 +21,35 @@ public:
     }
 
     void Append(const OperationType& operation) {
-        file << GetNameByOperationType(operation) << "\n";
+        TryAppend(operation);
     }
 
     void Append(const OperationType& operation, const std::string& key) {
-        file << GetNameByOperationType(operation) << " " << key << "\n";
+        TryAppend(operation, key);
     }
 
     void Append(const OperationType& operation, const std::string& key, const TValue& value) {
-        file << GetNameByOperationType(operation) << " " << key << " " << "-1" << value << "\n";
+        TryAppend(operation, key, value, -1);
     }
 
     void Append(const OperationType& operation, const std::string& key, const TValue& value, const MsType& ttl) {
-        file << GetNameByOperationType(operation) << " " << key << " " << ttl << " " << value << "\n";
+        TryAppend(operation, key, value, ttl);
     }
 
 private:
     std::ofstream file{};
+
+    template<typename ...TArgs>
+    void TryAppend(OperationType operation, TArgs&&... args) {
+        const auto result = TryGetNameByOperationType(operation);
+        if (result == std::nullopt) {
+            return;
+        }
+
+        file << *result;
+        ((file << " " << std::forward<TArgs>(args)), ...);
+        file << "\n";
+    }
 };
 
 #endif //RADISH_RECORDER_H

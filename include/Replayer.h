@@ -33,10 +33,14 @@ public:
 
             stream >> operation >> key >> timestamp >> value;
 
-            OperationType type = GetOperationTypeByName(operation);
-            if (type == SET)    instance.SetByTimestamp(key, value, timestamp);
-            if (type == DELETE) instance.Delete(key);
-            if (type == WIPE)   instance.Wipe();
+            const auto result = TryGetOperationTypeByName(operation);
+            if (result == std::nullopt) {
+                continue;
+            }
+
+            if (*result == SET)    instance.SetByTimestamp(key, value, timestamp);
+            if (*result == DELETE) instance.Delete(key);
+            if (*result == WIPE)   instance.Wipe();
         }
     }
 };
