@@ -6,7 +6,6 @@
 #define RADISH_RADISHDB_H
 
 #include <string>
-#include <iostream>
 
 #include "Radish.h"
 #include "Recorder.h"
@@ -37,21 +36,30 @@ public:
 
     void Set(const std::string& key, const TValue& value) {
         auto timestamp = m_store.Set(key, value);
-        m_recorder.Append(SET, key, value, timestamp);
+        m_recorder.TryAppend(SET, key, value, timestamp);
+    }
+
+    void Rename(const std::string& oldKey, const std::string& newKey) {
+        m_store.Rename(oldKey, newKey);
+        m_recorder.TryAppend(RENAME, oldKey, newKey);
     }
 
     void Delete(const std::string& key) {
         m_store.Delete(key);
-        m_recorder.Append(DELETE, key);
+        m_recorder.TryAppend(DELETE, key);
     }
 
     void Wipe() {
         m_store.Wipe();
-        m_recorder.Append(WIPE);
+        m_recorder.TryAppend(WIPE);
     }
 
     [[nodiscard]] std::vector<std::string> Scan() const {
         return m_store.Scan();
+    }
+
+    [[nodiscard]] std::size_t Size() const {
+        return m_store.Size();
     }
 
     [[nodiscard]] bool Exists(const std::string& key) const {
@@ -65,7 +73,7 @@ public:
 private:
     Radish<TValue> m_store;
     std::string m_database;
-    Recorder<TValue> m_recorder;
+    Recorder m_recorder;
 };
 
 #endif //RADISH_RADISHDB_H

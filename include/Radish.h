@@ -21,17 +21,17 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const Radish<T>& radish);
 
     std::optional<TValue> Get(const std::string& key) {
-        if (IsExpired(key) == false && m_data.contains(key)) {
-            return m_data[key];
+        if (m_data.contains(key) == false || IsExpired(key)) {
+            return std::nullopt;
         }
 
-        return std::nullopt;
+        return m_data[key];
     }
 
     MsTimestamp Set(const std::string& key, const TValue& value) {
         m_data[key] = value;
 
-        if (!IsTTLEnabled()) {
+        if (IsTTLEnabled() == false) {
             return -1;
         }
 
@@ -46,6 +46,18 @@ public:
         m_ttlData[key] = timestamp;
     }
 
+    void Rename(const std::string& oldKey, const std::string& newKey) {
+        if (m_data.contains(oldKey) == false || IsExpired(oldKey)) {
+            return;
+        }
+
+        m_data[newKey] = m_data[oldKey];
+        m_ttlData[oldKey] = m_ttlData[newKey];
+
+        m_data.erase(oldKey);
+        m_ttlData.erase(oldKey);
+    }
+
     void Delete(const std::string& key) {
         m_data.erase(key);
     }
@@ -58,10 +70,18 @@ public:
         std::vector<std::string> result;
 
         for (const auto& [key, value] : m_data) {
+            if (IsExpired(key)) {
+                continue;
+            }
+
             result.push_back(key);
         }
 
         return result;
+    }
+
+    [[nodiscard]] std::size_t Size() const {
+        return m_data.size();
     }
 
     [[nodiscard]] bool Exists(const std::string& key) const {
@@ -73,11 +93,11 @@ public:
     }
 
     [[nodiscard]] bool IsExpired(const std::string& key) const {
-        if (IsTTLEnabled() && m_ttlData.contains(key)) {
-            return m_clock.Now() >= m_ttlData.at(key);
+        if (IsTTLEnabled() == false || m_ttlData.contains(key) == false) {
+            return false;
         }
 
-        return false;
+        return m_clock.Now() >= m_ttlData.at(key);
     }
 
     [[nodiscard]] bool IsTTLEnabled() const {
