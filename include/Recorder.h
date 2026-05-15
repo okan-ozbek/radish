@@ -7,6 +7,9 @@
 
 #include <fstream>
 #include <iosfwd>
+#include <string>
+#include <stdexcept>
+#include <utility>
 
 #include "helpers/Operation.h"
 

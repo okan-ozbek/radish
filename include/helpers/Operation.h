@@ -5,6 +5,9 @@
 #ifndef RADISH_OPERATION_H
 #define RADISH_OPERATION_H
 
+#include <optional>
+#include <string>
+
 enum OperationType {
     SET,
     DELETE,
