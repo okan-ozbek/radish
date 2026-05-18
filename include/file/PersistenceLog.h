@@ -10,10 +10,14 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <stdexcept>
 
 #include "RadishEvent.h"
 
 class Serializable;
+
+template<typename TValue>
+class RadishStore;
 
 template<typename TValue>
 requires BinaryType<TValue>

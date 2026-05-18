@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <cstdint>
 
 enum OperationType : uint8_t {
     SET    = 0,

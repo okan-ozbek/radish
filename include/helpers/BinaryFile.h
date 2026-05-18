@@ -32,6 +32,8 @@ public:
     template<typename TValue>
     requires BinaryType<TValue> || HeapAllocated<TValue>
     static void Write(std::ofstream& file, const std::optional<TValue>& value) {
+        if (value == std::nullopt) return;
+
         if constexpr (HeapAllocated<TValue>) {
             const BinarySize bytes{ static_cast<BinarySize>(value->size()) };
 
@@ -53,7 +55,7 @@ public:
             BinarySize bytes{ static_cast<BinarySize>(value.size()) };
 
             file.read(reinterpret_cast<char*>(&bytes), sizeof(bytes));
-            value->resize(bytes);
+            value.resize(bytes);
             file.read(value.data(), bytes);
         }
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
@@ -67,6 +69,10 @@ public:
     template<typename TValue>
     requires BinaryType<TValue> || HeapAllocated<TValue>
     static void Read(std::ifstream& file, std::optional<TValue>& value) {
+        if (value == std::nullopt) {
+            value = TValue{};
+        }
+
         if constexpr (HeapAllocated<TValue>) {
             BinarySize bytes{ static_cast<BinarySize>(value->size()) };
 
@@ -74,7 +80,7 @@ public:
             value->resize(bytes);
             file.read(value->data(), bytes);
         }
-        else if constexpr (std::is_arithmetic_v<TValue>) {
+        else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.read(reinterpret_cast<char*>(&value.value()), sizeof(TValue));
         }
         else {

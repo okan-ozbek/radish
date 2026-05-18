@@ -13,8 +13,6 @@
 #include "../helpers/Operation.h"
 #include "../helpers/Types.h"
 
-enum OperationType : unsigned char;
-
 template<typename TValue>
 requires BinaryType<TValue>
 class RadishEvent final : public Serializable {
@@ -53,7 +51,10 @@ public:
         if (m_operationType == WIPE) return;
 
         BinaryFile::Write<std::string>(file, m_key);
-        BinaryFile::Write<std::string>(file, m_renameKey);
+
+        if (m_operationType == RENAME) {
+            BinaryFile::Write<std::string>(file, m_renameKey);
+        }
 
         if (m_operationType == DELETE || m_operationType == RENAME) return;
 
@@ -67,7 +68,10 @@ public:
         if (m_operationType == WIPE) return;
 
         BinaryFile::Read<std::string>(file, m_key);
-        BinaryFile::Read<std::string>(file, m_renameKey);
+
+        if (m_operationType == RENAME) {
+            BinaryFile::Read<std::string>(file, m_renameKey);
+        }
 
         if (m_operationType == DELETE || m_operationType == RENAME) return;
 

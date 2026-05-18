@@ -36,12 +36,6 @@ public:
         m_database.Append(RadishEvent<TValue>{ SET, timestamp, key, value });
     }
 
-    void Set(const std::string& key, TValue&& value) noexcept {
-        const TValue snapshot = value;
-        auto timestamp = m_store.Set(key, std::move(value));
-        m_database.Append(RadishEvent<TValue>{ SET, timestamp, key, snapshot });
-    }
-
     void Rename(const std::string& oldKey, const std::string& newKey) {
         m_store.Rename(oldKey, newKey);
         m_database.Append(RadishEvent<TValue>{ RENAME, 0, oldKey, newKey });
