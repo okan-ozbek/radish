@@ -13,7 +13,6 @@ public:
 
     virtual void Serialize(std::ofstream& out) const = 0;
     virtual void Deserialize(std::ifstream& in) = 0;
-    virtual void Print() const = 0;
 };
 
 #endif //RADISH_SERIALIZABLE_H

@@ -7,27 +7,24 @@
 
 #include <string>
 
-#include "Radish.h"
-#include "Recorder.h"
-#include "Replayer.h"
+#include "RadishStore.h"
+#include "file/PersistenceLog.h"
 
 template<typename TValue>
 class RadishDB {
 public:
-    explicit RadishDB(const std::string& name)
+    explicit RadishDB(const std::string& filename)
         : m_store{ -1 }
-        , m_database{ name + ".rdh" }
-        , m_recorder{ m_database }
+        , m_database{ filename + ".radish", "./" }
     {
-        Replayer<TValue>::Replay(m_store, m_database);
+        m_database.Replay(m_store);
     }
 
-    explicit RadishDB(const std::string& name, const MsTimestamp& ttl)
+    explicit RadishDB(const std::string& filename, const MsTimestamp& ttl)
         : m_store{ ttl }
-        , m_database{ name + ".rdh" }
-        , m_recorder{ m_database }
+        , m_database{ filename + ".radish", "./" }
     {
-        Replayer<TValue>::Replay(m_store, m_database);
+        m_database.Replay(m_store);
     }
 
     std::optional<TValue> Get(const std::string& key) {
@@ -36,22 +33,28 @@ public:
 
     void Set(const std::string& key, const TValue& value) {
         auto timestamp = m_store.Set(key, value);
-        m_recorder.TryAppend(SET, key, value, timestamp);
+        m_database.Append(RadishEvent<TValue>{ SET, timestamp, key, value });
+    }
+
+    void Set(const std::string& key, TValue&& value) noexcept {
+        const TValue snapshot = value;
+        auto timestamp = m_store.Set(key, std::move(value));
+        m_database.Append(RadishEvent<TValue>{ SET, timestamp, key, snapshot });
     }
 
     void Rename(const std::string& oldKey, const std::string& newKey) {
         m_store.Rename(oldKey, newKey);
-        m_recorder.TryAppend(RENAME, oldKey, newKey);
+        m_database.Append(RadishEvent<TValue>{ RENAME, 0, oldKey, newKey });
     }
 
     void Delete(const std::string& key) {
         m_store.Delete(key);
-        m_recorder.TryAppend(DELETE, key);
+        m_database.Append(RadishEvent<TValue>{ DELETE, 0, key });
     }
 
     void Wipe() {
         m_store.Wipe();
-        m_recorder.TryAppend(WIPE);
+        m_database.Append(RadishEvent<TValue>{ WIPE, 0 });
     }
 
     [[nodiscard]] std::vector<std::string> Scan() const {
@@ -71,9 +74,8 @@ public:
     }
 
 private:
-    Radish<TValue> m_store;
-    std::string m_database;
-    Recorder m_recorder;
+    RadishStore<TValue> m_store;
+    PersistenceLog<TValue> m_database;
 };
 
 #endif //RADISH_RADISHDB_H

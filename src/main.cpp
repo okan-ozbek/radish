@@ -1,6 +1,7 @@
 
 
-#include "../include/file/RadishFile.h"
+#include "../include/RadishDB.h"
+#include "../include/file/PersistenceLog.h"
 #include "../include/helpers/Operation.h"
 
 class Test final : public Serializable {
@@ -24,6 +25,8 @@ public:
         uint32_t nameByteSize{};
         in.read(reinterpret_cast<char*>(&nameByteSize), sizeof(nameByteSize));
 
+        std::cout << "Deserializing: " << nameByteSize << " bytes\n";
+
         name.resize(nameByteSize);
         in.read(name.data(), nameByteSize);
 
@@ -41,24 +44,13 @@ private:
 };
 
 int main() {
-    RadishFile<Test> rf{ "test.radish", "./" };
-    //
-    // const RadishRow<int> row{ DELETE, 123, "key1", 42 };
-    // const RadishRow<int> row2{ DELETE, 123, "key2", 42 };
-    // const RadishRow<int> row3{ DELETE, 123, "key3", 42 };
-
-    const RadishRow<Test> tr1{ SET, 123, "key1", Test{ "Okan", 30 } };
-    const RadishRow<Test> tr2{ SET, 321, "key2", Test{ "Dorza", 25 } };
-
-    rf.Append(tr1);
-    rf.Append(tr2);
-
-    int i{};
-    for (const std::vector<RadishRow<Test>> values = rf.ReadAll(); auto& value : values) {
-        std::cout << i << " -------------------\n";
-
-        value.Print();
-        ++i;
+    RadishDB<Test> db{ "test", 25000 };
+    auto key1 = db.Get("key1");
+    if (key1 != std::nullopt) {
+        std::cout << "Key1 exists:\n";
+        key1->Print();
+    } else {
+        std::cout << "Key1 does not exist or is expired.\n";
     }
 
     return 0;
