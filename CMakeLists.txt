@@ -10,4 +10,7 @@ add_executable(
     include/Radish.h
     include/helpers/Operation.h
     include/helpers/Types.h
+    include/file/RadishFile.h
+    include/file/Serializable.h
+    include/file/RadishRow.h
 )
