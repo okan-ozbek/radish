@@ -62,7 +62,7 @@ public:
         for (auto events = GetEvents(); auto& event : events) {
             switch (event.GetOperationType()) {
                 case SET:
-                    store.SetByTimestamp(event.GetKey().value(), event.GetPayload().value(), event.GetTimestamp());
+                    store.Set(event.GetKey().value(), event.GetPayload().value(), event.GetTimestamp());
                     break;
                 case RENAME:
                     store.Rename(event.GetKey().value(), event.GetRenameKey().value());
