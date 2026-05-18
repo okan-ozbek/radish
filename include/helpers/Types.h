@@ -13,7 +13,7 @@ using BinarySize = uint32_t;
 class Serializable;
 
 template<typename TValue>
-concept BinaryType = std::is_arithmetic_v<TValue> || std::is_base_of_v<Serializable, TValue>;
+concept BinaryType = std::is_arithmetic_v<TValue> || std::is_enum_v<TValue> || std::is_base_of_v<Serializable, TValue>;
 
 template<typename TValue>
 concept HeapAllocated = requires(TValue value)
