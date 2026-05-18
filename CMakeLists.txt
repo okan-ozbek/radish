@@ -12,4 +12,5 @@ add_executable(
     include/file/Serializable.h
     include/file/RadishEvent.h
         include/helpers/BinaryFile.h
+        include/helpers/Concepts.h
 )
