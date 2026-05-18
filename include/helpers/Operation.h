@@ -7,12 +7,13 @@
 
 #include <optional>
 #include <string>
+#include <cstdint>
 
-enum OperationType {
-    SET,
-    DELETE,
-    WIPE,
-    RENAME,
+enum OperationType : uint8_t {
+    SET    = 0,
+    DELETE = 1,
+    WIPE   = 2,
+    RENAME = 3,
 };
 
 static std::optional<OperationType> TryGetOperationTypeByName(const std::string& name) {

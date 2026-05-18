@@ -5,6 +5,7 @@
 #ifndef RADISH_RADISH_H
 #define RADISH_RADISH_H
 
+#include <iostream>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -13,15 +14,16 @@
 #include "helpers/Types.h"
 
 template<typename TValue>
-class Radish {
+class RadishStore {
 public:
-    explicit Radish(const MsTimestamp& ttl) : m_ttl{ ttl } {}
+    explicit RadishStore(const MsTimestamp& ttl) : m_ttl{ ttl } {}
 
     template<typename T>
-    friend std::ostream& operator<<(std::ostream& os, const Radish<T>& radish);
+    friend std::ostream& operator<<(std::ostream& os, const RadishStore<T>& radish);
 
     std::optional<TValue> Get(const std::string& key) {
         if (m_data.contains(key) == false || IsExpired(key)) {
+            std::cout << "Key \"" << key << "\" does not exist or is expired.\n";
             return std::nullopt;
         }
 
@@ -35,10 +37,17 @@ public:
             return -1;
         }
 
-        const auto timestamp = m_clock.Now() + m_ttl;
-        m_ttlData[key] = timestamp;
+        return SetTTLForKey(key);
+    }
 
-        return timestamp;
+    MsTimestamp Set(const std::string& key, TValue&& value) noexcept {
+        m_data[key] = std::move(value);
+
+        if (IsTTLEnabled() == false) {
+            return -1;
+        }
+
+        return SetTTLForKey(key);
     }
 
     void SetByTimestamp(const std::string& key, const TValue& value, const MsTimestamp& timestamp) {
@@ -114,10 +123,17 @@ private:
 
     std::unordered_map<std::string, TValue> m_data{};
     std::unordered_map<std::string, MsTimestamp> m_ttlData{};
+
+    MsTimestamp SetTTLForKey(const std::string& key) {
+        const auto timestamp = m_clock.Now() + m_ttl;
+        m_ttlData[key] = timestamp;
+
+        return timestamp;
+    }
 };
 
 template<typename TValue>
-std::ostream& operator<<(std::ostream& os, const Radish<TValue>& radish) {
+std::ostream& operator<<(std::ostream& os, const RadishStore<TValue>& radish) {
     for (const auto& [key, value] : radish.m_data) {
         os << "\"" << key << "\" -> \"" << value << "\"" << "\n";
     }
