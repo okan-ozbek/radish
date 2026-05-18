@@ -56,12 +56,12 @@ of the layers above it.
 RadishDB<TValue>                  -- Public facade: composes store + persistence
     RadishStore<TValue>           -- Pure in-memory key-value store with TTL (no I/O)
     PersistenceLog<TValue>        -- Binary AOF: append events, replay on startup
-        RadishEvent<TValue>       -- Typed event: operation + timestamp + key + payload
-            Serializable          -- Base class for custom serialisable value types
-            BinaryFile            -- Static read/write helpers (arithmetic, heap, Serializable)
-        helpers/Operation.h       -- OperationType enum + TryGet* helpers
-        helpers/Types.h           -- MsTimestamp, BinarySize, BinaryType, HeapAllocated concepts
-        helpers/SystemClock.h     -- Clock abstraction for TTL expiry checks
+        RadishEvent<TValue>       -- Typed event: op + timestamp + key + payload
+            Serializable          -- Pure-virtual base: Serialize + Deserialize
+            BinaryFile            -- Static R/W helpers (arithmetic, HeapAllocated, Serializable)
+        helpers/Operation.h       -- OperationType enum (uint8_t) + TryGet* helpers
+        helpers/Types.h           -- MsTimestamp, BinarySize, BinaryType, HeapAllocated
+        helpers/SystemClock.h     -- IClock interface + SystemClock (chrono-backed)
 ```
 
 `RadishStore` can be instantiated and tested with zero file system involvement. The persistence layer is
@@ -152,21 +152,47 @@ concept HeapAllocated = requires(TValue t) {
 };
 ```
 
+A `static_assert` on `std::is_trivially_copyable_v<ElementType>` guards against accidentally storing
+non-trivial element types (e.g. `std::vector<std::string>`) via the raw byte path.
+
 ### Serialisable Values — `Serializable`
 
-To store a custom struct as a value in `RadishDB`, inherit from `Serializable` and implement three methods:
+To store a custom struct as a value in `RadishDB`, inherit from `Serializable` and implement two methods:
 
 ```cpp
 class MyType final : public Serializable {
 public:
-    void Serialize(std::ofstream& out) const override { /* write fields */ }
-    void Deserialize(std::ifstream& in) override      { /* read fields  */ }
-    void Print() const override                        { /* debug print  */ }
+    void Serialize(std::ofstream& out) const override {
+        // write each field using BinaryFile::Write or raw file.write
+    }
+
+    void Deserialize(std::ifstream& in) override {
+        // read each field back in the same order
+    }
 };
 
 RadishDB<MyType> db("my_database", 30000);
 db.Set("key1", MyType{ ... });
 ```
+
+`Serializable` does **not** require a `Print` method — that is left to the concrete type.
+
+### Clock Abstraction — `helpers/SystemClock.h`
+
+TTL expiry checks go through an `IClock` interface, making the clock injectable and testable:
+
+```cpp
+struct IClock {
+    [[nodiscard]] virtual MsTimestamp Now() const = 0;
+};
+
+struct SystemClock final : IClock {
+    [[nodiscard]] MsTimestamp Now() const override; // std::chrono::system_clock
+};
+```
+
+`RadishStore` holds a `SystemClock` by value. In tests this could be replaced with a mock clock to
+control expiry without real time passing.
 
 ### Operations — `helpers/Operation.h`
 
@@ -228,7 +254,8 @@ auto val = db.Get("key1");  // restored from binary file on next run
 | **`RadishEvent` as typed event model** | Each event carries its own type, timestamp, key, and payload — self-describing and easy to replay |
 | **`BinaryFile` as centralised I/O** | One place for `if constexpr` dispatch — arithmetic, heap-allocated, and `Serializable` all handled uniformly |
 | **`Serializable` base class** | Allows custom value types to participate in binary persistence with minimal boilerplate |
-| **`HeapAllocated` concept** | Compile-time detection of types with `size()` + `data()` — covers `std::string`, `std::vector`, and any compatible type |
+| **`HeapAllocated` concept** | Compile-time detection of types with `size()` + `data()` — covers `std::string`, `std::vector<T>`, and any compatible type. `sizeof(ElementType)` ensures correct byte count for non-char element types. `static_assert` on `is_trivially_copyable` prevents silent corruption. |
+| **`IClock` interface on `SystemClock`** | `RadishStore` depends on `IClock`, not the concrete clock — making TTL logic mockable in future unit tests without real time passing |
 | **`PersistenceLog::Replay` owns replay** | `RadishDB` calls one method. The switch over operation types lives in `PersistenceLog`, not in the facade |
 | **RAII for file handles** | Files are opened per-operation and closed on scope exit — no persistent handle state to manage |
 | **Timestamp stored in event** | Expiry survives a restart: the absolute `MsTimestamp` is written so `SetByTimestamp` can restore it exactly |
@@ -256,7 +283,7 @@ All short-term features are complete.
 
 | Feature | Status | Description |
 |---|---|---|
-| **Binary serialisation** | In Progress | `RadishEvent` serialises to binary. `BinaryFile` centralises `if constexpr` dispatch. `PersistenceLog` reads/writes in `std::ios::binary`. Remaining: route all field I/O through `BinaryFile` consistently, harden edge cases. |
+| **Binary serialisation** | Done | `RadishEvent` fully routes all field I/O through `BinaryFile::Read` / `BinaryFile::Write`. Four overloads cover raw values and `std::optional<TValue>` for both read and write. `static_assert` guards non-trivially-copyable element types. `PersistenceLog` opens files in `std::ios::binary`. |
 | **AOF Compaction** | Planned | Rewrite the log to its minimal equivalent: remove superseded `SET` calls, drop keys that were `DELETE`d. Prevents unbounded log growth. |
 | **Snapshot persistence (RDB-like)** | Planned | Serialise the full in-memory store to a compact binary file on a schedule. Faster startup than replaying a long log. Run alongside AOF like Redis: snapshot for fast restore, AOF for durability. |
 | **`std::variant` value types** | Planned | `std::variant<std::string, int64_t, double>` as the value type for heterogeneous storage. Requires a type discriminator byte in `RadishEvent`. |
