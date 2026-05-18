@@ -5,9 +5,11 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_executable(
     radish src/main.cpp
-    include/Recorder.h
-    include/Replayer.h
-    include/Radish.h
+    include/RadishStore.h
     include/helpers/Operation.h
     include/helpers/Types.h
+    include/file/PersistenceLog.h
+    include/file/Serializable.h
+    include/file/RadishEvent.h
+        include/helpers/BinaryFile.h
 )

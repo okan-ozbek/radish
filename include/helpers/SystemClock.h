@@ -7,15 +7,15 @@
 
 #include <chrono>
 
-struct IClock {
-    using MillisecondsType = long long;
+#include "Types.h"
 
-    [[nodiscard]] virtual MillisecondsType Now() const = 0;
+struct IClock {
+    [[nodiscard]] virtual MsTimestamp Now() const = 0;
     virtual ~IClock() = default;
 };
 
 struct SystemClock final : IClock {
-    [[nodiscard]] MillisecondsType Now() const override {
+    [[nodiscard]] MsTimestamp Now() const override {
         const auto now = std::chrono::system_clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     }
