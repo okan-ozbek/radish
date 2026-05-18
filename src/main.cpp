@@ -33,9 +33,8 @@ public:
         in.read(reinterpret_cast<char*>(&age), sizeof(age));
     }
 
-    void Print() const override {
-        std::cout << "name: " << name << "\n";
-        std::cout << "age: " << age << "\n";
+    void Print() {
+        std::cout << "name: " << name << ", age: " << age << "\n";
     }
 
 private:
@@ -45,6 +44,7 @@ private:
 
 int main() {
     RadishDB<Test> db{ "test", 25000 };
+    db.Set("key1", Test{ "Okan", 30 });
     auto key1 = db.Get("key1");
     if (key1 != std::nullopt) {
         std::cout << "Key1 exists:\n";
