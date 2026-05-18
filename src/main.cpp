@@ -25,8 +25,6 @@ public:
         uint32_t nameByteSize{};
         in.read(reinterpret_cast<char*>(&nameByteSize), sizeof(nameByteSize));
 
-        std::cout << "Deserializing: " << nameByteSize << " bytes\n";
-
         name.resize(nameByteSize);
         in.read(name.data(), nameByteSize);
 

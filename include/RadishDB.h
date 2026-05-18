@@ -33,7 +33,7 @@ public:
 
     void Set(const std::string& key, const TValue& value) {
         auto timestamp = m_store.Set(key, value);
-        m_database.Append(RadishEvent<TValue>{ SET, timestamp, key, value });
+        m_database.Append(RadishEvent<TValue>{ SET, timestamp, key, std::nullopt, value });
     }
 
     void Rename(const std::string& oldKey, const std::string& newKey) {

@@ -2,8 +2,8 @@
 // Created by Dorza on 5/18/2026.
 //
 
-#ifndef RADISH_RADISHROW_H
-#define RADISH_RADISHROW_H
+#ifndef RADISH_RADISHEVENT_H
+#define RADISH_RADISHEVENT_H
 
 
 #include <string>
@@ -14,34 +14,23 @@
 #include "../helpers/Types.h"
 
 template<typename TValue>
-requires BinaryType<TValue>
+requires BinaryType<TValue> || HeapAllocated<TValue>
 class RadishEvent final : public Serializable {
 public:
     RadishEvent() = default;
 
-    explicit RadishEvent(const OperationType& operationType, const MsTimestamp& timestamp, const std::string& key, const TValue& payload)
+    explicit RadishEvent(
+        const OperationType& operationType,
+        const MsTimestamp& timestamp,
+        std::optional<std::string> key = std::nullopt,
+        std::optional<std::string> renameKey = std::nullopt,
+        std::optional<TValue> payload = std::nullopt
+    )
         : m_operationType{ operationType }
         , m_timestamp{ timestamp }
-        , m_key{ key }
-        , m_payload{ payload }
-    {}
-
-    explicit RadishEvent(const OperationType& operationType, const MsTimestamp& timestamp, const std::string& key)
-        : m_operationType{ operationType }
-        , m_timestamp{ timestamp }
-        , m_key{ key }
-    {}
-
-    explicit RadishEvent(const OperationType& operationType, const MsTimestamp& timestamp, const std::string& key, const std::string& renameKey)
-        : m_operationType{ operationType }
-        , m_timestamp{ timestamp }
-        , m_key{ key }
-        , m_renameKey{ renameKey }
-    {}
-
-    explicit RadishEvent(const OperationType& operationType, const MsTimestamp& timestamp)
-        : m_operationType{ operationType }
-        , m_timestamp{ timestamp }
+        , m_key{ std::move(key) }
+        , m_renameKey{ std::move(renameKey) }
+        , m_payload{ std::move(payload) }
     {}
 
     void Serialize(std::ofstream& file) const override {
@@ -107,4 +96,4 @@ private:
 };
 
 
-#endif //RADISH_RADISHROW_H
+#endif //RADISH_RADISHEVENT_H

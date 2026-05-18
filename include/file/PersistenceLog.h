@@ -20,7 +20,7 @@ template<typename TValue>
 class RadishStore;
 
 template<typename TValue>
-requires BinaryType<TValue>
+requires BinaryType<TValue> || HeapAllocated<TValue>
 class PersistenceLog {
 public:
     PersistenceLog(std::string  filename, std::string  path)

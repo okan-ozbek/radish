@@ -16,10 +16,13 @@ public:
     requires BinaryType<TValue> || HeapAllocated<TValue>
     static void Write(std::ofstream& file, const TValue& value) {
         if constexpr (HeapAllocated<TValue>) {
-            const BinarySize bytes{ static_cast<BinarySize>(value.size()) };
+            using ElementType = TValue::value_type;
+            static_assert(std::is_trivially_copyable_v<ElementType>, "HeapAllocated element type must be trivially copyable");
+
+            const BinarySize bytes{ static_cast<BinarySize>(value.size() * sizeof(ElementType)) };
 
             file.write(reinterpret_cast<const char*>(&bytes), sizeof(bytes));
-            file.write(value.data(), bytes);
+            file.write(reinterpret_cast<const char*>(value.data()), bytes);
         }
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.write(reinterpret_cast<const char*>(&value), sizeof(TValue));
@@ -35,10 +38,13 @@ public:
         if (value == std::nullopt) return;
 
         if constexpr (HeapAllocated<TValue>) {
-            const BinarySize bytes{ static_cast<BinarySize>(value->size()) };
+            using ElementType = TValue::value_type;
+            static_assert(std::is_trivially_copyable_v<ElementType>, "HeapAllocated element type must be trivially copyable");
+
+            const BinarySize bytes{ static_cast<BinarySize>(value->size() * sizeof(ElementType)) };
 
             file.write(reinterpret_cast<const char*>(&bytes), sizeof(bytes));
-            file.write(value->data(), bytes);
+            file.write(reinterpret_cast<const char*>(value->data()), bytes);
         }
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.write(reinterpret_cast<const char*>(&value.value()), sizeof(TValue));
@@ -52,11 +58,13 @@ public:
     requires BinaryType<TValue> || HeapAllocated<TValue>
     static void Read(std::ifstream& file, TValue& value) {
         if constexpr (HeapAllocated<TValue>) {
-            BinarySize bytes{ static_cast<BinarySize>(value.size()) };
+            using ElementType = TValue::value_type;
+            static_assert(std::is_trivially_copyable_v<ElementType>, "HeapAllocated element type must be trivially copyable");
 
+            BinarySize bytes{};
             file.read(reinterpret_cast<char*>(&bytes), sizeof(bytes));
-            value.resize(bytes);
-            file.read(value.data(), bytes);
+            value.resize(bytes / sizeof(ElementType));
+            file.read(reinterpret_cast<char*>(value.data()), bytes);
         }
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.read(reinterpret_cast<char*>(&value), sizeof(TValue));
@@ -74,11 +82,13 @@ public:
         }
 
         if constexpr (HeapAllocated<TValue>) {
-            BinarySize bytes{ static_cast<BinarySize>(value->size()) };
+            using ElementType = TValue::value_type;
+            static_assert(std::is_trivially_copyable_v<ElementType>, "HeapAllocated element type must be trivially copyable");
 
+            BinarySize bytes{};
             file.read(reinterpret_cast<char*>(&bytes), sizeof(bytes));
-            value->resize(bytes);
-            file.read(value->data(), bytes);
+            value->resize(bytes / sizeof(ElementType));
+            file.read(reinterpret_cast<char*>(value->data()), bytes);
         }
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.read(reinterpret_cast<char*>(&value.value()), sizeof(TValue));
