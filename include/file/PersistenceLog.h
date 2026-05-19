@@ -12,8 +12,8 @@
 #include <vector>
 #include <stdexcept>
 
+#include "CompactStrategy.h"
 #include "../RadishEvent.h"
-#include "compact/CompactStrategy.h"
 
 class Serializable;
 
@@ -27,7 +27,7 @@ public:
     using Events = std::vector<RadishEvent<TValue>>;
     using Event = RadishEvent<TValue>;
     using EventsMap = std::unordered_map<std::string, RadishEvent<TValue>>;
-    using EventStrategies = std::unordered_map<EventType, std::unique_ptr<Events>>;
+    using EventStrategies = std::unordered_map<EventType, std::unique_ptr<CompactStrategy<TValue>>>;
 
     PersistenceLog() = delete;
 

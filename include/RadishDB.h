@@ -32,7 +32,7 @@ public:
     }
 
     void Create(const std::string& key, const TValue& value) {
-        auto timestamp = m_store.Set(key, value);
+        auto timestamp = m_store.Create(key, value);
         m_persistence.Append(RadishEvent<TValue>{ CREATE, timestamp, key, std::nullopt, value });
     }
 
