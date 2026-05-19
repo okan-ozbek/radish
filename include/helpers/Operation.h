@@ -9,27 +9,27 @@
 #include <string>
 #include <cstdint>
 
-enum OperationType : uint8_t {
-    SET    = 0,
-    DELETE = 1,
-    WIPE   = 2,
-    RENAME = 3,
+enum EventType : uint8_t {
+    CREATE = 0,
+    RENAME = 1,
+    DELETE = 2,
+    CLEAR  = 3,
 };
 
-static std::optional<OperationType> TryGetOperationTypeByName(const std::string& name) {
-    if (name == "SET")    return SET;
-    if (name == "DELETE") return DELETE;
-    if (name == "WIPE")   return WIPE;
+static std::optional<EventType> TryGetEventTypeByName(const std::string& name) {
+    if (name == "CREATE") return CREATE;
     if (name == "RENAME") return RENAME;
+    if (name == "DELETE") return DELETE;
+    if (name == "CLEAR")  return CLEAR;
 
     return std::nullopt;
 }
 
-static std::optional<std::string> TryGetNameByOperationType(const OperationType& operationType) {
-    if (operationType == SET)    return "SET";
-    if (operationType == DELETE) return "DELETE";
-    if (operationType == WIPE)   return "WIPE";
-    if (operationType == RENAME) return "RENAME";
+static std::optional<std::string> TryGetNameByEventType(const EventType& type) {
+    if (type == CREATE) return "CREATE";
+    if (type == RENAME) return "RENAME";
+    if (type == DELETE) return "DELETE";
+    if (type == CLEAR)  return "CLEAR";
 
     return std::nullopt;
 }

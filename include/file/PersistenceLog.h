@@ -12,7 +12,8 @@
 #include <vector>
 #include <stdexcept>
 
-#include "RadishEvent.h"
+#include "../RadishEvent.h"
+#include "compact/CompactStrategy.h"
 
 class Serializable;
 
@@ -23,12 +24,24 @@ template<typename TValue>
 requires BinaryType<TValue> || HeapAllocated<TValue>
 class PersistenceLog {
 public:
-    PersistenceLog(std::string  filename, std::string  path)
+    using Events = std::vector<RadishEvent<TValue>>;
+    using Event = RadishEvent<TValue>;
+    using EventsMap = std::unordered_map<std::string, RadishEvent<TValue>>;
+    using EventStrategies = std::unordered_map<EventType, std::unique_ptr<Events>>;
+
+    PersistenceLog() = delete;
+
+    PersistenceLog(std::string filename, std::string path)
         : m_filename{ std::move(filename) }
         , m_path{ std::move(path) }
-    {}
+    {
+        m_compactStrategies[CREATE] = std::make_unique<CreateCompactStrategy<TValue>>();
+        m_compactStrategies[RENAME] = std::make_unique<RenameCompactStrategy<TValue>>();
+        m_compactStrategies[DELETE] = std::make_unique<DeleteCompactStrategy<TValue>>();
+        m_compactStrategies[CLEAR]  = std::make_unique<ClearCompactStrategy<TValue>>();
+    }
 
-    void Append(const RadishEvent<TValue>& row) {
+    void Append(const Event& row) {
         std::ofstream file(m_filename, std::ios::binary | std::ios::app);
 
         if (file.is_open() == false) {
@@ -38,8 +51,8 @@ public:
         row.Serialize(file);
     }
 
-    std::vector<RadishEvent<TValue>> GetEvents() {
-        std::vector<RadishEvent<TValue>> rows{};
+    Events GetEvents() {
+        Events events{};
         std::ifstream file(m_filename, std::ios::binary | std::ios::in);
 
         if (file.is_open() == false) {
@@ -47,41 +60,70 @@ public:
         }
 
         while (file.peek() != EOF) {
-            RadishEvent<TValue> row{};
-            row.Deserialize(file);
+            Event event{};
+            event.Deserialize(file);
 
             if (file.good()) {
-                rows.push_back(row);
+                events.push_back(event);
             }
         }
 
-        return rows;
+        return events;
+    }
+
+    void Compact() {
+        EventsMap events;
+        for (auto& event : GetEvents()) {
+            if (m_compactStrategies.contains(event.GetEventType())) {
+                m_compactStrategies[event.GetEventType()]->Execute(events, event);
+            }
+        }
+
+        RewriteHistory(events);
     }
 
     void Replay(RadishStore<TValue>& store) {
+        Compact();
+
         for (auto events = GetEvents(); auto& event : events) {
-            switch (event.GetOperationType()) {
-                case SET:
-                    store.Set(event.GetKey().value(), event.GetPayload().value(), event.GetTimestamp());
-                    break;
-                case RENAME:
-                    store.Rename(event.GetKey().value(), event.GetRenameKey().value());
-                    break;
-                case DELETE:
-                    store.Delete(event.GetKey().value());
-                    break;
-                case WIPE:
-                    store.Wipe();
-                    break;
-                default:
-                    throw std::runtime_error("Unknown operation type encountered during replay.");
+            if (IsReplayableEvent(event) == false) {
+                continue;
             }
+
+            store.Create(*event.GetKey(), *event.GetPayload(), event.GetTimestamp());
         }
     }
 
 private:
     std::string m_filename;
     std::string m_path;
+
+    EventStrategies m_compactStrategies;
+
+    bool IsReplayableEvent(const RadishEvent<TValue>& event) const {
+        if (event.GetEventType() != CREATE || event.GetKey() == std::nullopt || event.GetPayload() == std::nullopt) {
+            return false;
+        }
+
+        return true;
+    }
+
+    void RewriteHistory(const EventsMap& events) {
+        const SystemClock clock{};
+        std::ofstream file(m_filename, std::ios::binary | std::ios::trunc);
+
+        if (file.is_open() == false) {
+            throw std::runtime_error("Failed to open file for rewriting: " + m_filename);
+        }
+
+        for (const auto& [_, event] : events) {
+            if (event.GetTimestamp() != -1 && event.GetTimestamp() < clock.Now()) {
+                continue;
+            }
+
+            event.Serialize(file);
+        }
+    }
 };
 
 

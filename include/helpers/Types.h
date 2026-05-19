@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-using MsTimestamp = long long;
+using Timestamp = long long;
 using BinarySize = uint32_t;
 
 #endif //RADISH_TYPES_H

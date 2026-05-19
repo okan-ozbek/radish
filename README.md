@@ -59,8 +59,8 @@ RadishDB<TValue>                  -- Public facade: composes store + persistence
         RadishEvent<TValue>       -- Typed event: op + timestamp + key + payload
             Serializable          -- Pure-virtual base: Serialize + Deserialize
             BinaryFile            -- Static R/W helpers (arithmetic, HeapAllocated, Serializable)
-        helpers/Operation.h       -- OperationType enum (uint8_t) + TryGet* helpers
-        helpers/Types.h           -- MsTimestamp, BinarySize, BinaryType, HeapAllocated
+        helpers/Operation.h       -- EventType enum (uint8_t) + TryGet* helpers
+        helpers/Types.h           -- Timestamp, BinarySize, BinaryType, HeapAllocated
         helpers/SystemClock.h     -- IClock interface + SystemClock (chrono-backed)
 ```
 
@@ -121,8 +121,8 @@ making it both compact and unambiguous.
 ### Event Model — `RadishEvent<TValue>`
 
 `RadishEvent` is the unit of persistence. It holds:
-- `OperationType` — `SET`, `DELETE`, `RENAME`, or `WIPE`
-- `MsTimestamp` — absolute millisecond expiry timestamp (stored so TTL survives a restart)
+- `EventType` — `SET`, `DELETE`, `RENAME`, or `WIPE`
+- `Timestamp` — absolute millisecond expiry timestamp (stored so TTL survives a restart)
 - `std::optional<std::string>` key and rename key
 - `std::optional<TValue>` payload
 
@@ -183,11 +183,11 @@ TTL expiry checks go through an `IClock` interface, making the clock injectable 
 
 ```cpp
 struct IClock {
-    [[nodiscard]] virtual MsTimestamp Now() const = 0;
+    [[nodiscard]] virtual Timestamp Now() const = 0;
 };
 
 struct SystemClock final : IClock {
-    [[nodiscard]] MsTimestamp Now() const override; // std::chrono::system_clock
+    [[nodiscard]] Timestamp Now() const override; // std::chrono::system_clock
 };
 ```
 
@@ -196,7 +196,7 @@ control expiry without real time passing.
 
 ### Operations — `helpers/Operation.h`
 
-Defines the `OperationType` enum and two helpers returning `std::optional` instead of throwing:
+Defines the `EventType` enum and two helpers returning `std::optional` instead of throwing:
 
 ```
 SET     -- Write a key/value with an expiry timestamp
@@ -258,7 +258,7 @@ auto val = db.Get("key1");  // restored from binary file on next run
 | **`IClock` interface on `SystemClock`** | `RadishStore` depends on `IClock`, not the concrete clock — making TTL logic mockable in future unit tests without real time passing |
 | **`PersistenceLog::Replay` owns replay** | `RadishDB` calls one method. The switch over operation types lives in `PersistenceLog`, not in the facade |
 | **RAII for file handles** | Files are opened per-operation and closed on scope exit — no persistent handle state to manage |
-| **Timestamp stored in event** | Expiry survives a restart: the absolute `MsTimestamp` is written so `SetByTimestamp` can restore it exactly |
+| **Timestamp stored in event** | Expiry survives a restart: the absolute `Timestamp` is written so `SetByTimestamp` can restore it exactly |
 | **Lazy expiry** | Expired keys are checked at access time — no background thread, no complexity |
 | **`Rename` as atomic operation** | Implemented directly in `m_data` without a public `Delete` + `Set` round-trip |
 | **Snapshot before move in `Set(TValue&&)`** | The value is captured before `std::move` so the event written to disk has the full payload, not a moved-from empty object |
@@ -310,9 +310,9 @@ radish/
 ├── include/
 │   ├── helpers/
 │   │   ├── BinaryFile.h        # Static Read/Write helpers (arithmetic, HeapAllocated, Serializable)
-│   │   ├── Operation.h         # OperationType enum + TryGet* helpers (std::optional)
+│   │   ├── Operation.h         # EventType enum + TryGet* helpers (std::optional)
 │   │   ├── SystemClock.h       # Clock abstraction for TTL expiry checks
-│   │   └── Types.h             # MsTimestamp, BinarySize, BinaryType, HeapAllocated concepts
+│   │   └── Types.h             # Timestamp, BinarySize, BinaryType, HeapAllocated concepts
 │   ├── file/
 │   │   ├── PersistenceLog.h    # Binary AOF: Append, GetEvents, Replay
 │   │   ├── RadishEvent.h       # Typed event: op + timestamp + key + payload (Serializable)

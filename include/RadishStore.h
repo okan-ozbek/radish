@@ -16,23 +16,28 @@
 template<typename TValue>
 class RadishStore {
 public:
-    explicit RadishStore(const MsTimestamp& ttl) : m_ttl{ ttl } {}
+    using DataMap = std::unordered_map<std::string, TValue>;
+    using TTLMap = std::unordered_map<std::string, Timestamp>;
+    using Keys = std::vector<std::string>;
+
+    explicit RadishStore(const Timestamp& ttl) : m_ttl{ ttl } {}
 
     std::optional<TValue> Get(const std::string& key) {
-        if (m_data.contains(key) == false || IsExpired(key)) {
-            std::cout << "Key \"" << key << "\" does not exist or is expired.\n";
-            return std::nullopt;
+        if (m_data.contains(key) && !IsExpired(key)) {
+            return m_data.at(key);
         }
 
-        return m_data[key];
+        return std::nullopt;
     }
 
-    MsTimestamp Set(const std::string& key, const TValue& value, const std::optional<MsTimestamp> timestamp = std::nullopt) {
+    Timestamp Create(const std::string& key, const TValue& value, const std::optional<Timestamp> timestamp = std::nullopt) {
         m_data[key] = value;
 
-        if (IsTTLEnabled() == false) return -1;
+        if (HasTimeToLive()) {
+            return InsertTimestampForKey(key, timestamp);
+        }
 
-        return SetTTLForKey(key, timestamp);
+        return -1;
     }
 
     void Rename(const std::string& oldKey, const std::string& newKey) {
@@ -41,7 +46,7 @@ public:
         }
 
         m_data[newKey] = m_data[oldKey];
-        m_ttlData[oldKey] = m_ttlData[newKey];
+        m_ttlData[newKey] = m_ttlData[oldKey];
 
         m_data.erase(oldKey);
         m_ttlData.erase(oldKey);
@@ -51,22 +56,22 @@ public:
         m_data.erase(key);
     }
 
-    void Wipe() {
+    void Clear() {
         m_data.clear();
     }
 
-    [[nodiscard]] std::vector<std::string> Scan() const {
-        std::vector<std::string> result;
+    [[nodiscard]] Keys Scan() const {
+        Keys keys{};
 
         for (const auto& [key, value] : m_data) {
             if (IsExpired(key)) {
                 continue;
             }
 
-            result.push_back(key);
+            keys.push_back(key);
         }
 
-        return result;
+        return keys;
     }
 
     [[nodiscard]] std::size_t Size() const {
@@ -82,29 +87,29 @@ public:
     }
 
     [[nodiscard]] bool IsExpired(const std::string& key) const {
-        if (IsTTLEnabled() == false || m_ttlData.contains(key) == false) {
-            return false;
+        if (HasTimeToLive() && m_ttlData.contains(key)) {
+            return m_clock.Now() >= m_ttlData.at(key);
         }
 
-        return m_clock.Now() >= m_ttlData.at(key);
+        return false;
     }
 
-    [[nodiscard]] bool IsTTLEnabled() const {
+    [[nodiscard]] bool HasTimeToLive() const {
         return m_ttl != -1;
     }
 
-    [[nodiscard]] MsTimestamp GetTTL() const {
+    [[nodiscard]] Timestamp GetTTL() const {
         return m_ttl;
     }
 
 private:
     SystemClock m_clock{};
-    MsTimestamp m_ttl{ -1 };
+    Timestamp m_ttl{ -1 };
 
-    std::unordered_map<std::string, TValue> m_data{};
-    std::unordered_map<std::string, MsTimestamp> m_ttlData{};
+    DataMap m_data{};
+    TTLMap m_ttlData{};
 
-    MsTimestamp SetTTLForKey(const std::string& key, const std::optional<MsTimestamp> timestamp = std::nullopt) {
+    Timestamp InsertTimestampForKey(const std::string& key, const std::optional<Timestamp> timestamp = std::nullopt) {
         const auto value = (timestamp != std::nullopt) ? timestamp.value() : m_clock.Now() + m_ttl;
         m_ttlData[key] = value;
 
