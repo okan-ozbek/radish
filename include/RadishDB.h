@@ -8,47 +8,47 @@
 #include <string>
 
 #include "RadishStore.h"
-#include "file/PersistenceLog.h"
+#include "persistence/PersistenceLog.h"
 
 template<typename TValue>
 class RadishDB {
 public:
     explicit RadishDB(const std::string& filename)
         : m_store{ -1 }
-        , m_database{ filename + ".radish", "./" }
+        , m_persistence{ filename + ".radish", "./" }
     {
-        m_database.Replay(m_store);
+        m_persistence.Replay(m_store);
     }
 
-    explicit RadishDB(const std::string& filename, const MsTimestamp& ttl)
+    explicit RadishDB(const std::string& filename, const Timestamp& ttl)
         : m_store{ ttl }
-        , m_database{ filename + ".radish", "./" }
+        , m_persistence{ filename + ".radish", "./" }
     {
-        m_database.Replay(m_store);
+        m_persistence.Replay(m_store);
     }
 
     std::optional<TValue> Get(const std::string& key) {
         return m_store.Get(key);
     }
 
-    void Set(const std::string& key, const TValue& value) {
-        auto timestamp = m_store.Set(key, value);
-        m_database.Append(RadishEvent<TValue>{ SET, timestamp, key, std::nullopt, value });
+    void Create(const std::string& key, const TValue& value) {
+        auto timestamp = m_store.Create(key, value);
+        m_persistence.Append(RadishEvent<TValue>{ CREATE, timestamp, key, std::nullopt, value });
     }
 
     void Rename(const std::string& oldKey, const std::string& newKey) {
         m_store.Rename(oldKey, newKey);
-        m_database.Append(RadishEvent<TValue>{ RENAME, 0, oldKey, newKey });
+        m_persistence.Append(RadishEvent<TValue>{ RENAME, 0, oldKey, newKey });
     }
 
     void Delete(const std::string& key) {
         m_store.Delete(key);
-        m_database.Append(RadishEvent<TValue>{ DELETE, 0, key });
+        m_persistence.Append(RadishEvent<TValue>{ DELETE, 0, key });
     }
 
-    void Wipe() {
-        m_store.Wipe();
-        m_database.Append(RadishEvent<TValue>{ WIPE, 0 });
+    void Clear() {
+        m_store.Clear();
+        m_persistence.Append(RadishEvent<TValue>{ CLEAR, 0 });
     }
 
     [[nodiscard]] std::vector<std::string> Scan() const {
@@ -69,7 +69,7 @@ public:
 
 private:
     RadishStore<TValue> m_store;
-    PersistenceLog<TValue> m_database;
+    PersistenceLog<TValue> m_persistence;
 };
 
 #endif //RADISH_RADISHDB_H

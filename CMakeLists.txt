@@ -6,10 +6,13 @@ set(CMAKE_CXX_STANDARD 23)
 add_executable(
     radish src/main.cpp
     include/RadishStore.h
-    include/helpers/Operation.h
+    include/RadishDB.h
+    include/RadishEvent.h
+    include/enums/EventType.h
     include/helpers/Types.h
-    include/file/PersistenceLog.h
-    include/file/Serializable.h
-    include/file/RadishEvent.h
-        include/helpers/BinaryFile.h
+    include/helpers/Concepts.h
+    include/persistence/BinaryFile.h
+    include/persistence/PersistenceLog.h
+    include/persistence/Serializable.h
+    include/persistence/CompactStrategy.h
 )

@@ -5,24 +5,31 @@
 #ifndef RADISH_TYPES_H
 #define RADISH_TYPES_H
 
-#include <cstdint>
-#include <type_traits>
-#include <concepts>
-#include <cstddef>
+#include <unordered_map>
+#include <vector>
+#include <memory>
+#include <string>
 
-using MsTimestamp = long long;
+#include "Concepts.h"
+
+template<typename TValue>
+requires BinaryType<TValue> || HeapAllocated<TValue>
+class RadishEvent;
+
+template<typename TValue>
+class CompactStrategy;
+
+enum EventType : uint8_t;
+
+using Timestamp = long long;
 using BinarySize = uint32_t;
 
-class Serializable;
-
 template<typename TValue>
-concept BinaryType = std::is_arithmetic_v<TValue> || std::is_enum_v<TValue> || std::is_base_of_v<Serializable, TValue>;
-
-template<typename TValue>
-concept HeapAllocated = requires(TValue value)
-{
-    { value.size() } -> std::convertible_to<std::size_t>;
-    { value.data() };
+struct PersistenceLogTypes {
+    using Events          = std::vector<RadishEvent<TValue>>;
+    using Event           = RadishEvent<TValue>;
+    using EventsMap       = std::unordered_map<std::string, RadishEvent<TValue>>;
+    using EventStrategies = std::unordered_map<EventType, std::unique_ptr<CompactStrategy<TValue>>>;
 };
 
 #endif //RADISH_TYPES_H
