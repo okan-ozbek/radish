@@ -47,7 +47,7 @@ public:
     }
 
     void Clear() {
-        m_store.Wipe();
+        m_store.Clear();
         m_persistence.Append(RadishEvent<TValue>{ CLEAR, 0 });
     }
 

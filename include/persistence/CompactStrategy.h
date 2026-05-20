@@ -33,10 +33,6 @@ public:
     ~CreateCompactStrategy() override = default;
 
     void Execute(EventsMap& events, const Event& event) override {
-        if (events.contains(*event.GetKey())) {
-            return;
-        }
-
         events[*event.GetKey()] = event;
     }
 };

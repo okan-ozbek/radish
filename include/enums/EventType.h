@@ -2,8 +2,8 @@
 // Created by Okan Özbek on 5/15/2026.
 //
 
-#ifndef RADISH_OPERATION_H
-#define RADISH_OPERATION_H
+#ifndef RADISH_EVENTTYPE_H
+#define RADISH_EVENTTYPE_H
 
 #include <optional>
 #include <string>
@@ -34,4 +34,4 @@ static std::optional<std::string> TryGetNameByEventType(const EventType& type) {
     return std::nullopt;
 }
 
-#endif //RADISH_OPERATION_H
+#endif //RADISH_EVENTTYPE_H

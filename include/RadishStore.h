@@ -46,10 +46,13 @@ public:
         }
 
         m_data[newKey] = m_data[oldKey];
-        m_ttlData[newKey] = m_ttlData[oldKey];
-
         m_data.erase(oldKey);
-        m_ttlData.erase(oldKey);
+
+        if (const auto ttlIt = m_ttlData.find(oldKey); ttlIt != m_ttlData.end()) {
+            m_ttlData[newKey] = ttlIt->second;
+        } else {
+            m_ttlData.erase(newKey);
+        }
     }
 
     void Delete(const std::string& key) {
@@ -58,6 +61,7 @@ public:
 
     void Clear() {
         m_data.clear();
+        m_ttlData.clear();
     }
 
     [[nodiscard]] Keys Scan() const {

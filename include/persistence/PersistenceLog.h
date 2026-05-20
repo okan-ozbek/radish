@@ -11,6 +11,7 @@
 #include <utility>
 #include <stdexcept>
 
+#include "../helpers//SystemClock.h"
 #include "CompactStrategy.h"
 #include "../RadishEvent.h"
 
@@ -38,7 +39,12 @@ public:
     }
 
     ~PersistenceLog() {
-        Compact();
+        // TODO: check how we want to properly resolve this
+        try {
+            Compact();
+        } catch (...) {
+            std::cout << "Exception caught in ~PersistenceLog()" << std::endl;
+        }
     }
 
     void Append(const Event& row) {
@@ -88,6 +94,7 @@ public:
                 continue;
             }
 
+            // TODO: is compaction crashes we won't have only Create() events in our file, think of a proper implementation
             store.Create(*event.GetKey(), *event.GetPayload(), event.GetTimestamp());
         }
     }
