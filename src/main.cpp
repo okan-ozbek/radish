@@ -1,55 +1,97 @@
+//
+//
+//
 
+#include <iostream>
+#include <mutex>
+#include <optional>
+#include <shared_mutex>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
-#include "../include/RadishDB.h"
-#include "../include/persistence/PersistenceLog.h"
-
-class Test final : public Serializable {
+class Database {
 public:
-    Test() = default;
+    using Key = std::string;
+    using Value = std::string;
+    using Datas = std::unordered_map<Key, Value>;
 
-    explicit Test(std::string name, int age)
-        : name{ std::move(name) }
-        , age{ age }
-    {}
+    Database() = default;
 
-    void Serialize(std::ofstream &out) const override {
-        const uint32_t nameByteSize{ static_cast<uint32_t>(name.size()) };
-        out.write(reinterpret_cast<const char*>(&nameByteSize), sizeof(nameByteSize));
-        out.write(name.data(), nameByteSize);
-
-        out.write(reinterpret_cast<const char*>(&age), sizeof(age));
+    void Insert(const Key& key, const Value& value) {
+        std::lock_guard lock(m_mutex);
+        m_data[key] = value;
     }
 
-    void Deserialize(std::ifstream &in) override {
-        uint32_t nameByteSize{};
-        in.read(reinterpret_cast<char*>(&nameByteSize), sizeof(nameByteSize));
+    void Insert(Key&& key, Value&& value) {
+        std::lock_guard lock(m_mutex);
 
-        name.resize(nameByteSize);
-        in.read(name.data(), nameByteSize);
-
-        in.read(reinterpret_cast<char*>(&age), sizeof(age));
+        m_data[std::move(key)] = std::move(value);
     }
 
-    void Print() {
-        std::cout << "name: " << name << ", age: " << age << "\n";
+    void Delete(const Key& key) {
+        std::lock_guard lock(m_mutex);
+        m_data.erase(key);
+    }
+
+    std::optional<Value> Get(const Key& key) const {
+        std::shared_lock lock(m_mutex);
+
+        if (const auto it = m_data.find(key); it != m_data.end()) {
+            return it->second;
+        }
+
+        return std::nullopt;
     }
 
 private:
-    std::string name{};
-    int age{};
+    mutable std::shared_mutex m_mutex;
+
+    Datas m_data{};
 };
 
 int main() {
-    RadishDB<Test> db{ "test", 25000 };
-    db.Create("key1", Test{ "Okan", 30 });
-    auto key1 = db.Get("key1");
-    if (key1 != std::nullopt) {
-        std::cout << "Key1 exists:\n";
-        key1->Print();
-    } else {
-        std::cout << "Key1 does not exist or is expired.\n";
+    Database db{};
+
+    constexpr int iterations = 100000;
+
+    std::vector<std::thread> threads;
+
+    // writers
+    for (int i = 0; i < 4; ++i)
+    {
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < iterations; ++j)
+            {
+                std::cout << "Inserting: " << j << std::endl;
+                db.Insert("key", std::to_string(j));
+            }
+        });
+    }
+
+    // readers
+    for (int i = 0; i < 8; ++i)
+    {
+        threads.emplace_back([&]()
+        {
+            for (int j = 0; j < iterations; ++j)
+            {
+                auto value = db.Get("key");
+
+                if (value.has_value())
+                {
+                    std::cout << value.value() << std::endl;
+                }
+            }
+        });
+    }
+
+    for (auto& thread : threads)
+    {
+        thread.join();
     }
 
     return 0;
 }
-
