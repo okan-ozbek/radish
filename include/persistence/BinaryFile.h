@@ -8,7 +8,7 @@
 #include <fstream>
 #include <optional>
 
-#include "Types.h"
+#include "../helpers/Concepts.h"
 
 class BinaryFile {
 public:

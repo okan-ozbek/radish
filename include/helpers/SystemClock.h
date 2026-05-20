@@ -10,12 +10,12 @@
 #include "Types.h"
 
 struct IClock {
-    [[nodiscard]] virtual MsTimestamp Now() const = 0;
+    [[nodiscard]] virtual Timestamp Now() const = 0;
     virtual ~IClock() = default;
 };
 
 struct SystemClock final : IClock {
-    [[nodiscard]] MsTimestamp Now() const override {
+    [[nodiscard]] Timestamp Now() const override {
         const auto now = std::chrono::system_clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     }

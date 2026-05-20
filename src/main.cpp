@@ -1,8 +1,7 @@
 
 
 #include "../include/RadishDB.h"
-#include "../include/file/PersistenceLog.h"
-#include "../include/helpers/Operation.h"
+#include "../include/persistence/PersistenceLog.h"
 
 class Test final : public Serializable {
 public:
@@ -42,7 +41,7 @@ private:
 
 int main() {
     RadishDB<Test> db{ "test", 25000 };
-    db.Set("key1", Test{ "Okan", 30 });
+    db.Create("key1", Test{ "Okan", 30 });
     auto key1 = db.Get("key1");
     if (key1 != std::nullopt) {
         std::cout << "Key1 exists:\n";
@@ -53,3 +52,4 @@ int main() {
 
     return 0;
 }
+
