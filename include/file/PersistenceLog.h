@@ -9,25 +9,21 @@
 #include <fstream>
 #include <string>
 #include <utility>
-#include <vector>
 #include <stdexcept>
 
 #include "CompactStrategy.h"
 #include "../RadishEvent.h"
 
-class Serializable;
-
-template<typename TValue>
-class RadishStore;
+template<typename TValue> class RadishStore;
 
 template<typename TValue>
 requires BinaryType<TValue> || HeapAllocated<TValue>
 class PersistenceLog {
 public:
-    using Events = std::vector<RadishEvent<TValue>>;
-    using Event = RadishEvent<TValue>;
-    using EventsMap = std::unordered_map<std::string, RadishEvent<TValue>>;
-    using EventStrategies = std::unordered_map<EventType, std::unique_ptr<CompactStrategy<TValue>>>;
+    using Events          = PersistenceLogTypes<TValue>::Events;
+    using Event           = PersistenceLogTypes<TValue>::Event;
+    using EventsMap       = PersistenceLogTypes<TValue>::EventsMap;
+    using EventStrategies = PersistenceLogTypes<TValue>::EventStrategies;
 
     PersistenceLog() = delete;
 
@@ -39,6 +35,10 @@ public:
         m_compactStrategies[RENAME] = std::make_unique<RenameCompactStrategy<TValue>>();
         m_compactStrategies[DELETE] = std::make_unique<DeleteCompactStrategy<TValue>>();
         m_compactStrategies[CLEAR]  = std::make_unique<ClearCompactStrategy<TValue>>();
+    }
+
+    ~PersistenceLog() {
+        Compact();
     }
 
     void Append(const Event& row) {
@@ -83,8 +83,6 @@ public:
     }
 
     void Replay(RadishStore<TValue>& store) {
-        Compact();
-
         for (auto events = GetEvents(); auto& event : events) {
             if (IsReplayableEvent(event) == false) {
                 continue;

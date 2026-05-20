@@ -2,7 +2,6 @@
 
 #include "../include/RadishDB.h"
 #include "../include/file/PersistenceLog.h"
-#include "../include/helpers/Operation.h"
 
 class Test final : public Serializable {
 public:
