@@ -60,7 +60,7 @@ RadishDB<TValue>                  -- Public facade: composes store + persistence
             Serializable          -- Pure-virtual base: Serialize + Deserialize
             BinaryFile            -- Static R/W helpers (arithmetic, HeapAllocated, Serializable)
         CompactStrategy<TValue>   -- Strategy pattern: per-operation compaction logic
-        helpers/Operation.h       -- EventType enum (uint8_t) + TryGet* helpers
+        enums/EventType.h         -- EventType enum (uint8_t) + TryGet* helpers
         helpers/Types.h           -- Timestamp, BinarySize type aliases
         helpers/Concepts.h        -- BinaryType, HeapAllocated concepts + Serializable forward decl
         helpers/SystemClock.h     -- IClock interface + SystemClock (chrono-backed)
@@ -216,7 +216,7 @@ struct SystemClock final : IClock {
 `RadishStore` holds a `SystemClock` by value. In tests this could be replaced with a mock clock to
 control expiry without real time passing.
 
-### Operations — `helpers/Operation.h`
+### Operations — `enums/EventType.h`
 
 Defines the `EventType` enum and two helpers returning `std::optional` instead of throwing:
 
@@ -332,13 +332,14 @@ All short-term features are complete.
 ```
 radish/
 ├── include/
+│   ├── enums/
+│   │   └── EventType.h         # EventType enum + TryGet* helpers (std::optional)
 │   ├── helpers/
-│   │   ├── BinaryFile.h        # Static Read/Write helpers (arithmetic, HeapAllocated, Serializable)
 │   │   ├── Concepts.h          # BinaryType, HeapAllocated concepts + Serializable forward decl
-│   │   ├── Operation.h         # EventType enum + TryGet* helpers (std::optional)
 │   │   ├── SystemClock.h       # IClock interface + SystemClock (chrono-backed)
 │   │   └── Types.h             # Timestamp, BinarySize type aliases (zero dependencies)
-│   ├── file/
+│   ├── persistence/
+│   │   ├── BinaryFile.h        # Static Read/Write helpers (arithmetic, HeapAllocated, Serializable)
 │   │   ├── CompactStrategy.h   # Strategy pattern: CreateCompactStrategy, RenameCompactStrategy, etc.
 │   │   ├── PersistenceLog.h    # Binary AOF: Append, GetEvents, Compact, Replay
 │   │   └── Serializable.h      # Pure-virtual base: Serialize + Deserialize
