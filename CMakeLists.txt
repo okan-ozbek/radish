@@ -8,11 +8,11 @@ add_executable(
     include/RadishStore.h
     include/RadishDB.h
     include/RadishEvent.h
-    include/helpers/Operation.h
+    include/enums/EventType.h
     include/helpers/Types.h
-    include/helpers/BinaryFile.h
     include/helpers/Concepts.h
-    include/file/PersistenceLog.h
-    include/file/Serializable.h
-    include/file/CompactStrategy.h
+    include/persistence/BinaryFile.h
+    include/persistence/PersistenceLog.h
+    include/persistence/Serializable.h
+    include/persistence/CompactStrategy.h
 )

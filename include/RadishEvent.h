@@ -8,9 +8,9 @@
 
 #include <string>
 
-#include "file/Serializable.h"
-#include "helpers/BinaryFile.h"
-#include "helpers/Operation.h"
+#include "persistence/Serializable.h"
+#include "persistence/BinaryFile.h"
+#include "enums/EventType.h"
 #include "helpers/Types.h"
 
 template<typename TValue>

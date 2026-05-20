@@ -8,7 +8,7 @@
 #include <string>
 
 #include "RadishStore.h"
-#include "file/PersistenceLog.h"
+#include "persistence/PersistenceLog.h"
 
 template<typename TValue>
 class RadishDB {

@@ -55,18 +55,20 @@ of the layers above it.
 ```
 RadishDB<TValue>                  -- Public facade: composes store + persistence
     RadishStore<TValue>           -- Pure in-memory key-value store with TTL (no I/O)
-    PersistenceLog<TValue>        -- Binary AOF: append events, replay on startup
+    PersistenceLog<TValue>        -- Binary AOF: append events, compact on shutdown, replay on startup
         RadishEvent<TValue>       -- Typed event: op + timestamp + key + payload
             Serializable          -- Pure-virtual base: Serialize + Deserialize
             BinaryFile            -- Static R/W helpers (arithmetic, HeapAllocated, Serializable)
+        CompactStrategy<TValue>   -- Strategy pattern: per-operation compaction logic
         helpers/Operation.h       -- EventType enum (uint8_t) + TryGet* helpers
-        helpers/Types.h           -- Timestamp, BinarySize, BinaryType, HeapAllocated
+        helpers/Types.h           -- Timestamp, BinarySize type aliases
+        helpers/Concepts.h        -- BinaryType, HeapAllocated concepts + Serializable forward decl
         helpers/SystemClock.h     -- IClock interface + SystemClock (chrono-backed)
 ```
 
 `RadishStore` can be instantiated and tested with zero file system involvement. The persistence layer is
-entirely opt-in through `RadishDB`. `PersistenceLog` owns the full read/write/replay lifecycle — `RadishDB`
-calls `m_database.Replay(m_store)` and nothing more.
+entirely opt-in through `RadishDB`. `PersistenceLog` owns the full read/write/compact/replay lifecycle —
+`RadishDB` calls `m_persistence.Replay(m_store)` and nothing more.
 
 ---
 
@@ -82,46 +84,66 @@ store. Expired keys are checked lazily on access — no background thread requir
 
 | Method | Redis Equivalent | Description |
 |---|---|---|
-| `Set(key, value)` | `SET key value` | Insert or overwrite. Returns expiry timestamp, or `-1` if TTL disabled |
-| `SetByTimestamp(key, value, ts)` | — | Internal: restores a key with a known expiry timestamp during replay |
+| `Create(key, value)` | `SET key value` | Insert or overwrite. Returns expiry timestamp, or `-1` if TTL disabled |
+| `Create(key, value, ts)` | — | Internal: restores a key with a known expiry timestamp during replay |
 | `Get(key)` | `GET key` | Returns `std::optional<TValue>`. Returns `nullopt` if missing or expired |
 | `Delete(key)` | `DEL key` | Remove a key |
-| `Wipe()` | `FLUSHDB` | Remove all keys |
+| `Clear()` | `FLUSHDB` | Remove all keys |
 | `Rename(old, new)` | `RENAME old new` | Atomically move a value to a new key. No-op if old key is missing or expired |
 | `Exists(key)` | `EXISTS key` | Returns `false` if the key is missing or expired |
 | `Scan()` | `KEYS *` | Returns all live (non-expired) keys as `std::vector<std::string>` |
 | `Size()` | `DBSIZE` | Returns total number of stored keys |
 | `IsExpired(key)` | `TTL key` (partial) | Returns `true` if the key has a TTL and it has passed |
-| `IsTTLEnabled()` | — | Returns `true` if the store was constructed with a TTL duration |
+| `HasTimeToLive()` | — | Returns `true` if the store was constructed with a TTL duration |
 | `GetTTL()` | `TTL key` (partial) | Returns the configured TTL duration in milliseconds |
 
 ### Persistence — Binary Append-Only File
 
 Every write operation is serialised as a `RadishEvent` and appended to a `.radish` binary file. On startup,
-`PersistenceLog::Replay` reads all events and applies them to the store in order to reconstruct state.
+`PersistenceLog::Replay` reads all events and applies them to the store in order to reconstruct state. On
+shutdown, `PersistenceLog::Compact` rewrites the file to its minimal equivalent automatically.
 
 The binary format is operation-driven — only fields relevant to the operation are written:
 
 | Operation | Fields written |
 |---|---|
-| `SET` | `opType (1B)` + `timestamp (8B)` + `keyLen (4B)` + `key` + `payload` |
+| `CREATE` | `opType (1B)` + `timestamp (8B)` + `keyLen (4B)` + `key` + `payload` |
 | `DELETE` | `opType (1B)` + `timestamp (8B)` + `keyLen (4B)` + `key` |
 | `RENAME` | `opType (1B)` + `timestamp (8B)` + `keyLen (4B)` + `key` + `renameKeyLen (4B)` + `renameKey` |
-| `WIPE` | `opType (1B)` + `timestamp (8B)` |
+| `CLEAR` | `opType (1B)` + `timestamp (8B)` |
 
 No delimiters or sentinels. The operation type byte tells the reader exactly which fields to expect next —
 making it both compact and unambiguous.
 
 - **`PersistenceLog<TValue>`** — opens in append mode on `Append`, reads in binary mode on `GetEvents`.
-  Owns the `Replay(RadishStore<TValue>&)` method: iterates events and applies them to the store. `RadishDB`
-  calls this with one line and has zero knowledge of the event format.
+  Owns `Replay(RadishStore<TValue>&)` and `Compact()`. Destructor calls `Compact()` automatically on clean
+  shutdown — the file is always left in a minimal state for the next startup.
 - **`RadishEvent<TValue>`** — typed event object. Implements `Serializable`. Serialises/deserialises itself
-  using `BinaryFile` helpers or its own `if constexpr` dispatch for each field.
+  using `BinaryFile` helpers with compile-time `if constexpr` dispatch per field.
+
+### AOF Compaction — `CompactStrategy<TValue>`
+
+On shutdown, `PersistenceLog` reduces the log to its minimal equivalent using the Strategy pattern. Each
+`EventType` has a dedicated strategy that knows how to apply that operation to a live key map:
+
+| Strategy | Behaviour |
+|---|---|
+| `CreateCompactStrategy` | Inserts the event into the map under its key (latest `CREATE` wins) |
+| `RenameCompactStrategy` | Moves the existing entry to the new key name |
+| `DeleteCompactStrategy` | Erases the key from the map |
+| `ClearCompactStrategy` | Clears the entire map |
+
+After all strategies have been applied, `RewriteHistory` truncates the file and writes only the surviving
+`CREATE` events — skipping any whose TTL has already expired. The result is a file that contains exactly the
+state that would be produced by replaying the full original log, in the minimum number of bytes.
+
+The strategy pattern keeps compaction logic isolated per operation — adding a new `EventType` requires only
+a new strategy class, with no changes to `PersistenceLog` itself.
 
 ### Event Model — `RadishEvent<TValue>`
 
 `RadishEvent` is the unit of persistence. It holds:
-- `EventType` — `SET`, `DELETE`, `RENAME`, or `WIPE`
+- `EventType` — `CREATE`, `DELETE`, `RENAME`, or `CLEAR`
 - `Timestamp` — absolute millisecond expiry timestamp (stored so TTL survives a restart)
 - `std::optional<std::string>` key and rename key
 - `std::optional<TValue>` payload
@@ -142,7 +164,7 @@ BinaryFile::Write(file, timestamp); // raw 8-byte integer
 BinaryFile::Write(file, payload);   // dispatches to Serialize() for custom types
 ```
 
-The `HeapAllocated` concept in `Types.h` matches any type with `size()` and `data()`:
+The `HeapAllocated` concept in `Concepts.h` matches any type with `size()` and `data()`:
 
 ```cpp
 template<typename TValue>
@@ -172,7 +194,7 @@ public:
 };
 
 RadishDB<MyType> db("my_database", 30000);
-db.Set("key1", MyType{ ... });
+db.Create("key1", MyType{ ... });
 ```
 
 `Serializable` does **not** require a `Print` method — that is left to the concrete type.
@@ -199,9 +221,9 @@ control expiry without real time passing.
 Defines the `EventType` enum and two helpers returning `std::optional` instead of throwing:
 
 ```
-SET     -- Write a key/value with an expiry timestamp
+CREATE  -- Write a key/value with an expiry timestamp
 DELETE  -- Remove a key
-WIPE    -- Clear the entire store
+CLEAR   -- Clear the entire store
 RENAME  -- Move a value to a new key
 ```
 
@@ -211,8 +233,8 @@ RENAME  -- Move a value to a new key
 // No TTL — keys live forever
 RadishDB<std::string> db("my_database");
 
-db.Set("users:id:1", "Alice");
-db.Set("users:id:2", "Bob");
+db.Create("users:id:1", "Alice");
+db.Create("users:id:2", "Bob");
 db.Delete("users:id:1");
 db.Rename("users:id:2", "users:id:99");
 
@@ -226,16 +248,16 @@ auto size = db.Size();  // 1
 // With TTL — keys expire after 5000ms
 RadishDB<std::string> db("my_database", 5000);
 
-db.Set("session:abc", "user_42");  // expires in 5 seconds
-db.Exists("session:abc");          // true (within TTL)
+db.Create("session:abc", "user_42");  // expires in 5 seconds
+db.Exists("session:abc");             // true (within TTL)
 // ... 5 seconds later ...
-db.Exists("session:abc");          // false (expired)
+db.Exists("session:abc");             // false (expired)
 ```
 
 ```cpp
 // Custom Serializable type
 RadishDB<MyType> db("my_database", 30000);
-db.Set("key1", MyType{ "Okan", 30 });
+db.Create("key1", MyType{ "Okan", 30 });
 
 auto val = db.Get("key1");  // restored from binary file on next run
 ```
@@ -250,18 +272,21 @@ auto val = db.Get("key1");  // restored from binary file on next run
 | **`std::optional` for `Get`** | Avoids sentinel values and exceptions for the normal "key not found" case |
 | **`std::optional` for error handling** | `TryGet*` helpers return `std::nullopt` on unknown input — no exceptions in hot paths |
 | **Binary format over text AOF** | No delimiters to parse, no ambiguity, smaller on disk, faster to write and replay |
-| **Operation-driven serialisation** | Only fields relevant to the operation are written — `WIPE` writes 9 bytes total, not a padded record |
+| **Operation-driven serialisation** | Only fields relevant to the operation are written — `CLEAR` writes 9 bytes total, not a padded record |
 | **`RadishEvent` as typed event model** | Each event carries its own type, timestamp, key, and payload — self-describing and easy to replay |
 | **`BinaryFile` as centralised I/O** | One place for `if constexpr` dispatch — arithmetic, heap-allocated, and `Serializable` all handled uniformly |
 | **`Serializable` base class** | Allows custom value types to participate in binary persistence with minimal boilerplate |
 | **`HeapAllocated` concept** | Compile-time detection of types with `size()` + `data()` — covers `std::string`, `std::vector<T>`, and any compatible type. `sizeof(ElementType)` ensures correct byte count for non-char element types. `static_assert` on `is_trivially_copyable` prevents silent corruption. |
+| **`Concepts.h` separate from `Types.h`** | `Types.h` has zero dependencies (pure aliases). `Concepts.h` owns concept definitions and forward-declares `Serializable` — preventing circular includes between `helpers/` and `file/` layers. |
+| **Strategy pattern for compaction** | Each `EventType` gets an isolated strategy class. Adding a new operation requires only a new strategy — `PersistenceLog` and `Compact()` need no changes. |
+| **Compaction on destructor** | `~PersistenceLog()` calls `Compact()` — the file is always left in minimal form on clean shutdown, so the next startup replays the smallest possible log. If the process crashes, the full AOF is still intact and correct. |
 | **`IClock` interface on `SystemClock`** | `RadishStore` depends on `IClock`, not the concrete clock — making TTL logic mockable in future unit tests without real time passing |
 | **`PersistenceLog::Replay` owns replay** | `RadishDB` calls one method. The switch over operation types lives in `PersistenceLog`, not in the facade |
 | **RAII for file handles** | Files are opened per-operation and closed on scope exit — no persistent handle state to manage |
-| **Timestamp stored in event** | Expiry survives a restart: the absolute `Timestamp` is written so `SetByTimestamp` can restore it exactly |
+| **Timestamp stored in event** | Expiry survives a restart: the absolute `Timestamp` is written so `Create(key, value, ts)` can restore it exactly |
 | **Lazy expiry** | Expired keys are checked at access time — no background thread, no complexity |
-| **`Rename` as atomic operation** | Implemented directly in `m_data` without a public `Delete` + `Set` round-trip |
-| **Snapshot before move in `Set(TValue&&)`** | The value is captured before `std::move` so the event written to disk has the full payload, not a moved-from empty object |
+| **`Rename` as atomic operation** | Implemented directly in `m_data` without a public `Delete` + `Create` round-trip |
+| **Snapshot before move in `Create(TValue&&)`** | The value is captured before `std::move` so the event written to disk has the full payload, not a moved-from empty object |
 
 ---
 
@@ -284,10 +309,9 @@ All short-term features are complete.
 | Feature | Status | Description |
 |---|---|---|
 | **Binary serialisation** | Done | `RadishEvent` fully routes all field I/O through `BinaryFile::Read` / `BinaryFile::Write`. Four overloads cover raw values and `std::optional<TValue>` for both read and write. `static_assert` guards non-trivially-copyable element types. `PersistenceLog` opens files in `std::ios::binary`. |
-| **AOF Compaction** | Planned | Rewrite the log to its minimal equivalent: remove superseded `SET` calls, drop keys that were `DELETE`d. Prevents unbounded log growth. |
-| **Snapshot persistence (RDB-like)** | Planned | Serialise the full in-memory store to a compact binary file on a schedule. Faster startup than replaying a long log. Run alongside AOF like Redis: snapshot for fast restore, AOF for durability. |
+| **AOF Compaction** | Done | Strategy pattern per `EventType`. `Compact()` simulates full replay into a live key map, then `RewriteHistory` truncates and rewrites only surviving `CREATE` events — skipping expired keys. Called automatically in `~PersistenceLog()`. |
 | **`std::variant` value types** | Planned | `std::variant<std::string, int64_t, double>` as the value type for heterogeneous storage. Requires a type discriminator byte in `RadishEvent`. |
-| **Unit tests (GoogleTest)** | Planned | Round-trip tests: write events, re-open, verify state matches. Test TTL expiry, rename, wipe. Isolate `RadishStore`, `PersistenceLog`, and `BinaryFile` independently. |
+| **Unit tests (GoogleTest)** | Planned | Round-trip tests: write events, re-open, verify state matches. Test TTL expiry, rename, clear. Isolate `RadishStore`, `PersistenceLog`, and `BinaryFile` independently. Use mock `IClock` to test TTL without real time passing. |
 | **Thread safety** | Planned | `std::shared_mutex` on `m_data`: concurrent reads, exclusive writes. Prerequisite for any networking work. |
 
 ### Long Term — From Toy to System
@@ -310,15 +334,17 @@ radish/
 ├── include/
 │   ├── helpers/
 │   │   ├── BinaryFile.h        # Static Read/Write helpers (arithmetic, HeapAllocated, Serializable)
+│   │   ├── Concepts.h          # BinaryType, HeapAllocated concepts + Serializable forward decl
 │   │   ├── Operation.h         # EventType enum + TryGet* helpers (std::optional)
-│   │   ├── SystemClock.h       # Clock abstraction for TTL expiry checks
-│   │   └── Types.h             # Timestamp, BinarySize, BinaryType, HeapAllocated concepts
+│   │   ├── SystemClock.h       # IClock interface + SystemClock (chrono-backed)
+│   │   └── Types.h             # Timestamp, BinarySize type aliases (zero dependencies)
 │   ├── file/
-│   │   ├── PersistenceLog.h    # Binary AOF: Append, GetEvents, Replay
-│   │   ├── RadishEvent.h       # Typed event: op + timestamp + key + payload (Serializable)
-│   │   └── Serializable.h      # Base class for custom serialisable value types
-│   ├── RadishStore.h           # Pure in-memory key-value store with TTL
-│   └── RadishDB.h              # Public facade: composes RadishStore + PersistenceLog
+│   │   ├── CompactStrategy.h   # Strategy pattern: CreateCompactStrategy, RenameCompactStrategy, etc.
+│   │   ├── PersistenceLog.h    # Binary AOF: Append, GetEvents, Compact, Replay
+│   │   └── Serializable.h      # Pure-virtual base: Serialize + Deserialize
+│   ├── RadishDB.h              # Public facade: composes RadishStore + PersistenceLog
+│   ├── RadishEvent.h           # Typed event: op + timestamp + key + payload
+│   └── RadishStore.h           # Pure in-memory key-value store with TTL
 ├── src/
 │   └── main.cpp                # Entry point
 └── README.md
