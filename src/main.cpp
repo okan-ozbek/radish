@@ -1,55 +1,77 @@
-
+#include <iostream>
 
 #include "../include/RadishDB.h"
-#include "../include/persistence/PersistenceLog.h"
+#include "../include/helpers/Types.h"
 
-class Test final : public Serializable {
+class Payload final : public Serializable {
 public:
-    Test() = default;
+    Payload() = default;
 
-    explicit Test(std::string name, int age)
-        : name{ std::move(name) }
-        , age{ age }
+    explicit Payload(std::string username, std::string password, int age, bool isActive)
+        : m_username(std::move(username))
+        , m_password(std::move(password))
+        , m_age(age)
+        , m_isActive(isActive)
     {}
 
     void Serialize(std::ofstream &out) const override {
-        const uint32_t nameByteSize{ static_cast<uint32_t>(name.size()) };
-        out.write(reinterpret_cast<const char*>(&nameByteSize), sizeof(nameByteSize));
-        out.write(name.data(), nameByteSize);
+        const uint32_t usernameLength = static_cast<uint32_t>(m_username.size());
+        const uint32_t passwordLength = static_cast<uint32_t>(m_password.size());
 
-        out.write(reinterpret_cast<const char*>(&age), sizeof(age));
+        out.write(reinterpret_cast<const char*>(&usernameLength), sizeof(usernameLength));
+        out.write(m_username.data(), usernameLength);
+
+        out.write(reinterpret_cast<const char*>(&passwordLength), sizeof(passwordLength));
+        out.write(m_password.data(), passwordLength);
+
+        out.write(reinterpret_cast<const char*>(&m_age), sizeof(m_age));
+        out.write(reinterpret_cast<const char*>(&m_isActive), sizeof(m_isActive));
     }
 
     void Deserialize(std::ifstream &in) override {
-        uint32_t nameByteSize{};
-        in.read(reinterpret_cast<char*>(&nameByteSize), sizeof(nameByteSize));
+        uint32_t usernameLength{};
+        uint32_t passwordLength{};
 
-        name.resize(nameByteSize);
-        in.read(name.data(), nameByteSize);
+        in.read(reinterpret_cast<char*>(&usernameLength), sizeof(usernameLength));
 
-        in.read(reinterpret_cast<char*>(&age), sizeof(age));
+        m_username.resize(usernameLength);
+        in.read(m_username.data(), usernameLength);
+
+        in.read(reinterpret_cast<char*>(&passwordLength), sizeof(passwordLength));
+
+        m_password.resize(passwordLength);
+        in.read(m_password.data(), passwordLength);
+
+        in.read(reinterpret_cast<char*>(&m_age), sizeof(m_age));
+        in.read(reinterpret_cast<char*>(&m_isActive), sizeof(m_isActive));
     }
 
-    void Print() {
-        std::cout << "name: " << name << ", age: " << age << "\n";
+    void Print() const {
+        std::cout << "Username: " << m_username << "\n";
+        std::cout << "Password: " << m_password << "\n";
+        std::cout << "Age: " << m_age << "\n";
+        std::cout << "Is Active: " << (m_isActive ? "Yes" : "No") << "\n";
     }
 
 private:
-    std::string name{};
-    int age{};
+    std::string m_username;
+    std::string m_password;
+    int m_age;
+    bool m_isActive;
 };
 
 int main() {
-    RadishDB<Test> db{ "test", 25000 };
-    db.Create("key1", Test{ "Okan", 30 });
-    auto key1 = db.Get("key1");
-    if (key1 != std::nullopt) {
-        std::cout << "Key1 exists:\n";
-        key1->Print();
-    } else {
-        std::cout << "Key1 does not exist or is expired.\n";
-    }
+    Payload user{ "okan", "password123", 30, true };
+    user.Print();
 
-    return 0;
+    RadishDB<Payload> db("mydb");
+
+    Payload other{};
+    other = db.Get("user1").value();
+    other.Print();
+
+
+
+
+    return std::cin.get();
 }
-
