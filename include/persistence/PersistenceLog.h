@@ -7,6 +7,8 @@
 
 
 #include <string>
+#include <iostream>
+#include <mutex>
 
 #include "LogWriter.h"
 #include "../RadishEvent.h"
@@ -36,7 +38,7 @@ public:
             m_writer.Compact();
         }
         catch (...) {
-            std::cout << "Exception caught in ~LogWriter()\n";
+            std::cout << "Exception caught in ~PersistenceLog()\n";
         }
     }
 

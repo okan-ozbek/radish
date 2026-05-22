@@ -2,9 +2,13 @@
 // Created by Dorza on 5/22/2026.
 //
 
-#ifndef RADISH_LOGPARSER_H
-#define RADISH_LOGPARSER_H
+#ifndef RADISH_LOGWRITER_H
+#define RADISH_LOGWRITER_H
 
+
+#include <fstream>
+#include <stdexcept>
+#include <memory>
 
 #include "CompactStrategy.h"
 #include "LogReader.h"
@@ -77,10 +81,10 @@ private:
 
     void RewriteHistory(const EventsMap& events) {
         const SystemClock clock{};
-        std::ofstream file((m_filename.data()), std::ios::binary | std::ios::trunc);
+        std::ofstream file(m_filename, std::ios::binary | std::ios::trunc);
 
         if (file.is_open() == false) {
-            throw std::runtime_error("Failed to open file for rewriting: " + std::string(m_filename));
+            throw std::runtime_error("Failed to open file for rewriting: " + m_filename);
         }
 
         for (const auto& [_, event] : events) {
@@ -101,4 +105,4 @@ private:
 };
 
 
-#endif //RADISH_LOGPARSER_H
+#endif //RADISH_LOGWRITER_H
