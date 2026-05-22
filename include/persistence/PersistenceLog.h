@@ -7,7 +7,6 @@
 
 
 #include <string>
-#include <utility>
 
 #include "LogWriter.h"
 #include "../RadishEvent.h"
@@ -29,16 +28,33 @@ public:
         : m_writer(filename, path)
     {}
 
+    ~PersistenceLog() {
+        try {
+            std::lock_guard lock{ m_mutex };
+
+            std::cout << "Compacting log file before destruction...\n";
+            m_writer.Compact();
+        }
+        catch (...) {
+            std::cout << "Exception caught in ~LogWriter()\n";
+        }
+    }
+
     void Append(const Event& row) {
+        std::lock_guard lock{ m_mutex };
+
         m_writer.Append(row);
     }
 
     void Replay(RadishStore<TValue>& store) {
+        std::lock_guard lock{ m_mutex };
+
         m_writer.Replay(store);
     }
 
 private:
     LogWriter<TValue> m_writer;
+    mutable std::mutex m_mutex{};
 };
 
 

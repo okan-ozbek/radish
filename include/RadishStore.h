@@ -5,7 +5,7 @@
 #ifndef RADISH_RADISH_H
 #define RADISH_RADISH_H
 
-#include <iostream>
+
 #include <optional>
 #include <string>
 #include <unordered_map>

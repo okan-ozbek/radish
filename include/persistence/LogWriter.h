@@ -11,7 +11,6 @@
 #include "../RadishStore.h"
 #include "../enums/EventType.h"
 
-
 template<typename TValue>
 requires BinaryType<TValue> || HeapAllocated<TValue>
 class LogWriter {
@@ -27,16 +26,6 @@ public:
         , m_path{ path }
     {
         InitializeCompactStrategies();
-    }
-
-    ~LogWriter() {
-        try {
-            std::cout << "Compacting log file before destruction...\n";
-            Compact();
-        }
-        catch (...) {
-            std::cout << "Exception caught in ~LogWriter()\n";
-        }
     }
 
     void Append(const Event& row) {
