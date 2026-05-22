@@ -6,13 +6,11 @@
 #define RADISH_RADISHFILE_H
 
 
-#include <fstream>
 #include <string>
-#include <utility>
-#include <stdexcept>
+#include <iostream>
+#include <mutex>
 
-#include "../helpers//SystemClock.h"
-#include "CompactStrategy.h"
+#include "LogWriter.h"
 #include "../RadishEvent.h"
 
 template<typename TValue> class RadishStore;
@@ -28,107 +26,37 @@ public:
 
     PersistenceLog() = delete;
 
-    PersistenceLog(std::string filename, std::string path)
-        : m_filename{ std::move(filename) }
-        , m_path{ std::move(path) }
-    {
-        m_compactStrategies[CREATE] = std::make_unique<CreateCompactStrategy<TValue>>();
-        m_compactStrategies[RENAME] = std::make_unique<RenameCompactStrategy<TValue>>();
-        m_compactStrategies[DELETE] = std::make_unique<DeleteCompactStrategy<TValue>>();
-        m_compactStrategies[CLEAR]  = std::make_unique<ClearCompactStrategy<TValue>>();
-    }
+    PersistenceLog(const std::string& filename, const std::string& path)
+        : m_writer(filename, path)
+    {}
 
     ~PersistenceLog() {
-        // TODO: check how we want to properly resolve this
         try {
-            Compact();
-        } catch (...) {
-            std::cout << "Exception caught in ~PersistenceLog()" << std::endl;
+            std::lock_guard lock{ m_mutex };
+
+            std::cout << "Compacting log file before destruction...\n";
+            m_writer.Compact();
+        }
+        catch (...) {
+            std::cout << "Exception caught in ~PersistenceLog()\n";
         }
     }
 
     void Append(const Event& row) {
-        std::ofstream file(m_filename, std::ios::binary | std::ios::app);
+        std::lock_guard lock{ m_mutex };
 
-        if (file.is_open() == false) {
-            throw std::runtime_error("Failed to open file for writing: " + m_filename);
-        }
-
-        row.Serialize(file);
-    }
-
-    Events GetEvents() {
-        Events events{};
-        std::ifstream file(m_filename, std::ios::binary | std::ios::in);
-
-        if (file.is_open() == false) {
-            throw std::runtime_error("Failed to open file for reading: " + m_filename);
-        }
-
-        while (file.peek() != EOF) {
-            Event event{};
-            event.Deserialize(file);
-
-            if (file.good()) {
-                events.push_back(event);
-            }
-        }
-
-        return events;
-    }
-
-    void Compact() {
-        EventsMap events;
-        for (auto& event : GetEvents()) {
-            if (m_compactStrategies.contains(event.GetEventType())) {
-                m_compactStrategies[event.GetEventType()]->Execute(events, event);
-            }
-        }
-
-        RewriteHistory(events);
+        m_writer.Append(row);
     }
 
     void Replay(RadishStore<TValue>& store) {
-        for (auto events = GetEvents(); auto& event : events) {
-            if (IsReplayableEvent(event) == false) {
-                continue;
-            }
+        std::lock_guard lock{ m_mutex };
 
-            // TODO: is compaction crashes we won't have only Create() events in our file, think of a proper implementation
-            store.Create(*event.GetKey(), *event.GetPayload(), event.GetTimestamp());
-        }
+        m_writer.Replay(store);
     }
 
 private:
-    std::string m_filename;
-    std::string m_path;
-
-    EventStrategies m_compactStrategies;
-
-    bool IsReplayableEvent(const RadishEvent<TValue>& event) const {
-        if (event.GetEventType() != CREATE || event.GetKey() == std::nullopt || event.GetPayload() == std::nullopt) {
-            return false;
-        }
-
-        return true;
-    }
-
-    void RewriteHistory(const EventsMap& events) {
-        const SystemClock clock{};
-        std::ofstream file(m_filename, std::ios::binary | std::ios::trunc);
-
-        if (file.is_open() == false) {
-            throw std::runtime_error("Failed to open file for rewriting: " + m_filename);
-        }
-
-        for (const auto& [_, event] : events) {
-            if (event.GetTimestamp() != -1 && event.GetTimestamp() < clock.Now()) {
-                continue;
-            }
-
-            event.Serialize(file);
-        }
-    }
+    LogWriter<TValue> m_writer;
+    mutable std::mutex m_mutex{};
 };
 
 

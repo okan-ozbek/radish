@@ -15,4 +15,6 @@ add_executable(
     include/persistence/PersistenceLog.h
     include/persistence/Serializable.h
     include/persistence/CompactStrategy.h
+    include/persistence/LogWriter.h
+    include/persistence/LogReader.h
 )
