@@ -1,97 +1,77 @@
-//
-//
-//
-
 #include <iostream>
-#include <mutex>
-#include <optional>
-#include <shared_mutex>
-#include <string>
-#include <thread>
-#include <unordered_map>
-#include <vector>
 
-class Database {
+#include "../include/RadishDB.h"
+#include "../include/helpers/Types.h"
+
+class Payload final : public Serializable {
 public:
-    using Key = std::string;
-    using Value = std::string;
-    using Datas = std::unordered_map<Key, Value>;
+    Payload() = default;
 
-    Database() = default;
+    explicit Payload(std::string username, std::string password, int age, bool isActive)
+        : m_username(std::move(username))
+        , m_password(std::move(password))
+        , m_age(age)
+        , m_isActive(isActive)
+    {}
 
-    void Insert(const Key& key, const Value& value) {
-        std::lock_guard lock(m_mutex);
-        m_data[key] = value;
+    void Serialize(std::ofstream &out) const override {
+        const uint32_t usernameLength = static_cast<uint32_t>(m_username.size());
+        const uint32_t passwordLength = static_cast<uint32_t>(m_password.size());
+
+        out.write(reinterpret_cast<const char*>(&usernameLength), sizeof(usernameLength));
+        out.write(m_username.data(), usernameLength);
+
+        out.write(reinterpret_cast<const char*>(&passwordLength), sizeof(passwordLength));
+        out.write(m_password.data(), passwordLength);
+
+        out.write(reinterpret_cast<const char*>(&m_age), sizeof(m_age));
+        out.write(reinterpret_cast<const char*>(&m_isActive), sizeof(m_isActive));
     }
 
-    void Insert(Key&& key, Value&& value) {
-        std::lock_guard lock(m_mutex);
+    void Deserialize(std::ifstream &in) override {
+        uint32_t usernameLength{};
+        uint32_t passwordLength{};
 
-        m_data[std::move(key)] = std::move(value);
+        in.read(reinterpret_cast<char*>(&usernameLength), sizeof(usernameLength));
+
+        m_username.resize(usernameLength);
+        in.read(m_username.data(), usernameLength);
+
+        in.read(reinterpret_cast<char*>(&passwordLength), sizeof(passwordLength));
+
+        m_password.resize(passwordLength);
+        in.read(m_password.data(), passwordLength);
+
+        in.read(reinterpret_cast<char*>(&m_age), sizeof(m_age));
+        in.read(reinterpret_cast<char*>(&m_isActive), sizeof(m_isActive));
     }
 
-    void Delete(const Key& key) {
-        std::lock_guard lock(m_mutex);
-        m_data.erase(key);
-    }
-
-    std::optional<Value> Get(const Key& key) const {
-        std::shared_lock lock(m_mutex);
-
-        if (const auto it = m_data.find(key); it != m_data.end()) {
-            return it->second;
-        }
-
-        return std::nullopt;
+    void Print() const {
+        std::cout << "Username: " << m_username << "\n";
+        std::cout << "Password: " << m_password << "\n";
+        std::cout << "Age: " << m_age << "\n";
+        std::cout << "Is Active: " << (m_isActive ? "Yes" : "No") << "\n";
     }
 
 private:
-    mutable std::shared_mutex m_mutex;
-
-    Datas m_data{};
+    std::string m_username;
+    std::string m_password;
+    int m_age;
+    bool m_isActive;
 };
 
 int main() {
-    Database db{};
+    Payload user{ "okan", "password123", 30, true };
+    user.Print();
 
-    constexpr int iterations = 100000;
+    RadishDB<Payload> db("mydb");
 
-    std::vector<std::thread> threads;
+    Payload other{};
+    other = db.Get("user1").value();
+    other.Print();
 
-    // writers
-    for (int i = 0; i < 4; ++i)
-    {
-        threads.emplace_back([&]()
-        {
-            for (int j = 0; j < iterations; ++j)
-            {
-                std::cout << "Inserting: " << j << std::endl;
-                db.Insert("key", std::to_string(j));
-            }
-        });
-    }
 
-    // readers
-    for (int i = 0; i < 8; ++i)
-    {
-        threads.emplace_back([&]()
-        {
-            for (int j = 0; j < iterations; ++j)
-            {
-                auto value = db.Get("key");
 
-                if (value.has_value())
-                {
-                    std::cout << value.value() << std::endl;
-                }
-            }
-        });
-    }
 
-    for (auto& thread : threads)
-    {
-        thread.join();
-    }
-
-    return 0;
+    return std::cin.get();
 }
