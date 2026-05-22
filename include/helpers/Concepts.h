@@ -9,12 +9,8 @@
 #include <concepts>
 #include <cstddef>
 
-class Serializable;
 template<typename TValue>
-concept BinaryType =
-    std::is_arithmetic_v<TValue> ||
-    std::is_enum_v<TValue> ||
-    std::is_base_of_v<Serializable, TValue>;
+concept BinaryType = std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>;
 
 template<typename TValue>
 concept HeapAllocated = requires(TValue value)
