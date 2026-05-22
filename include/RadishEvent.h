@@ -8,14 +8,13 @@
 
 #include <string>
 
-#include "persistence/Serializable.h"
 #include "persistence/BinaryFile.h"
 #include "enums/EventType.h"
 #include "helpers/Types.h"
 
 template<typename TValue>
 requires BinaryType<TValue> || HeapAllocated<TValue>
-class RadishEvent final : public Serializable {
+class RadishEvent {
 public:
     RadishEvent() = default;
 
@@ -33,7 +32,7 @@ public:
         , m_payload{ std::move(payload) }
     {}
 
-    void Serialize(std::ofstream& file) const override {
+    void Serialize(std::ofstream& file) const {
         BinaryFile::Write<EventType>(file, m_type);
         BinaryFile::Write<Timestamp>(file, m_timestamp);
 
@@ -50,7 +49,7 @@ public:
         BinaryFile::Write<TValue>(file, m_payload);
     }
 
-    void Deserialize(std::ifstream& file) override {
+    void Deserialize(std::ifstream& file) {
         BinaryFile::Read<EventType>(file, m_type);
         BinaryFile::Read<Timestamp>(file, m_timestamp);
 
