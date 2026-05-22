@@ -27,9 +27,6 @@ public:
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.write(reinterpret_cast<const char*>(&value), sizeof(TValue));
         }
-        else {
-            value.Serialize(file);
-        }
     }
 
     template<typename TValue>
@@ -49,9 +46,6 @@ public:
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.write(reinterpret_cast<const char*>(&value.value()), sizeof(TValue));
         }
-        else {
-            value->Serialize(file);
-        }
     }
 
     template<typename TValue>
@@ -68,9 +62,6 @@ public:
         }
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.read(reinterpret_cast<char*>(&value), sizeof(TValue));
-        }
-        else {
-            value.Deserialize(file);
         }
     }
 
@@ -92,9 +83,6 @@ public:
         }
         else if constexpr (std::is_arithmetic_v<TValue> || std::is_enum_v<TValue>) {
             file.read(reinterpret_cast<char*>(&value.value()), sizeof(TValue));
-        }
-        else {
-            value->Deserialize(file);
         }
     }
 };
