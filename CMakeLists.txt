@@ -30,8 +30,8 @@ target_link_libraries(radish_network PUBLIC radish_headers Threads::Threads)
 add_executable(radish-server src/main.cpp)
 target_link_libraries(radish-server PRIVATE radish_network)
 
-add_executable(radish-cli src/cli_main.cpp)
-target_link_libraries(radish-cli PRIVATE radish_network)
+add_executable(radish-bench benchmarks/RadishBench.cpp)
+target_link_libraries(radish-bench PRIVATE radish_network)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -51,6 +51,7 @@ if(BUILD_TESTING)
         tests/PersistenceLogTests.cpp
         tests/RespCodecTests.cpp
         tests/TcpServerTests.cpp
+        tests/BenchmarkStatisticsTests.cpp
     )
     target_link_libraries(radish_tests PRIVATE radish_network Catch2::Catch2WithMain)
 

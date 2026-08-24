@@ -20,6 +20,7 @@ struct ServerOptions
     std::string dataFile{ "radish" };
     std::uint16_t port{ 6379 };
     std::optional<Timestamp> ttl{};
+    bool persistenceEnabled{ true };
 };
 
 ServerOptions ParseOptions(const int argumentCount, char* arguments[])
@@ -56,6 +57,17 @@ ServerOptions ParseOptions(const int argumentCount, char* arguments[])
                 throw std::invalid_argument("TTL must be non-negative");
             }
         }
+        else if (option == "--persistence") {
+            if (value == "flush") {
+                options.persistenceEnabled = true;
+            }
+            else if (value == "off") {
+                options.persistenceEnabled = false;
+            }
+            else {
+                throw std::invalid_argument("Persistence must be 'flush' or 'off'");
+            }
+        }
         else {
             throw std::invalid_argument("Unknown option: " + option);
         }
@@ -72,10 +84,17 @@ int main(int argumentCount, char* arguments[])
         std::unique_ptr<RadishDB<std::string>> database;
 
         if (options.ttl) {
-            database = std::make_unique<RadishDB<std::string>>(options.dataFile, *options.ttl);
+            database = std::make_unique<RadishDB<std::string>>(
+                options.dataFile,
+                *options.ttl,
+                options.persistenceEnabled ? PersistenceMode::Flush : PersistenceMode::Disabled
+            );
         }
         else {
-            database = std::make_unique<RadishDB<std::string>>(options.dataFile);
+            database = std::make_unique<RadishDB<std::string>>(
+                options.dataFile,
+                options.persistenceEnabled ? PersistenceMode::Flush : PersistenceMode::Disabled
+            );
         }
 
         asio::io_context context;
@@ -92,7 +111,9 @@ int main(int argumentCount, char* arguments[])
         std::cout << "Radish listening on " << options.bindAddress << ":" << server.Port() << '\n';
 
         context.run();
-        database->Compact();
+        if (options.persistenceEnabled) {
+            database->Compact();
+        }
 
         return 0;
     }

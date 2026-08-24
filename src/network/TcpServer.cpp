@@ -35,6 +35,7 @@ public:
 
     void Start()
     {
+        m_socket.set_option(asio::ip::tcp::no_delay(true));
         Read();
     }
 

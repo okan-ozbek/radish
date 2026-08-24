@@ -360,35 +360,35 @@ All short-term features are complete.
 radish/
 ├── include/
 │   ├── enums/
-│   │   └── EventType.h         # EventType enum + TryGet* helpers (std::optional)
+│   │   └── EventType.h          # EventType enum + TryGet* helpers (std::optional)
 │   ├── helpers/
-│   │   ├── Concepts.h          # BinaryType and HeapAllocated concepts
-│   │   ├── SystemClock.h       # IClock interface + SystemClock (chrono-backed)
-│   │   └── Types.h             # Timestamp, BinarySize type aliases (zero dependencies)
+│   │   ├── Concepts.h           # BinaryType and HeapAllocated concepts
+│   │   ├── SystemClock.h        # IClock interface + SystemClock (chrono-backed)
+│   │   └── Types.h              # Timestamp, BinarySize type aliases (zero dependencies)
 │   ├── persistence/
-│   │   ├── BinaryFile.h        # Checked Read/Write helpers
-│   │   ├── CompactStrategy.h   # Strategy pattern: CreateCompactStrategy, RenameCompactStrategy, etc.
-│   │   ├── LogReader.h         # Binary file reader: deserialises events one at a time
-│   │   ├── LogWriter.h         # Append / Replay / Compact; owns a LogReader internally
-│   │   ├── PersistenceLog.h    # Thread-safe AOF facade: mutex + delegates to LogWriter
+│   │   ├── BinaryFile.h         # Checked Read/Write helpers
+│   │   ├── CompactStrategy.h    # Strategy pattern: CreateCompactStrategy, RenameCompactStrategy, etc.
+│   │   ├── LogReader.h          # Binary file reader: deserialises events one at a time
+│   │   ├── LogWriter.h          # Append / Replay / Compact; owns a LogReader internally
+│   │   ├── PersistenceLog.h     # Thread-safe AOF facade: mutex + delegates to LogWriter
 │   ├── network/
 │   │   ├── RespCodec.h          # RESP2/RESP3 request and response codec
 │   │   └── TcpServer.h          # Asio TCP server interface
-│   ├── RadishDB.h              # Public facade: composes RadishStore + PersistenceLog + shared_mutex
-│   ├── RadishEvent.h           # Typed event: op + timestamp + key + payload
-│   └── RadishStore.h           # Pure in-memory key-value store with TTL
+│   ├── RadishDB.h               # Public facade: composes RadishStore + PersistenceLog + shared_mutex
+│   ├── RadishEvent.h            # Typed event: op + timestamp + key + payload
+│   └── RadishStore.h            # Pure in-memory key-value store with TTL
 ├── src/
-│   ├── cli_main.cpp            # radish-cli entry point
-│   ├── main.cpp                # radish-server entry point
-│   └── network/                # RESP codec and TCP server implementation
+│   ├── cli_main.cpp             # radish-cli entry point
+│   ├── main.cpp                 # radish-server entry point
+│   └── network/                 # RESP codec and TCP server implementation
 ├── tests/
-│   ├── PersistenceLogTests.cpp # AOF read/write, compaction, and failure-path coverage
-│   ├── RadishDBTests.cpp       # Public API, restart, TTL, and compaction coverage
-│   ├── RadishEventTests.cpp    # Event serialization and validation coverage
-│   ├── RadishStoreTests.cpp    # In-memory mutation and TTL coverage
-│   ├── RespCodecTests.cpp      # RESP parsing and response coverage
-│   ├── TcpServerTests.cpp      # Loopback TCP server integration coverage
-│   └── TestSupport.h           # Temporary database-file fixture
+│   ├── PersistenceLogTests.cpp  # AOF read/write, compaction, and failure-path coverage
+│   ├── RadishDBTests.cpp        # Public API, restart, TTL, and compaction coverage
+│   ├── RadishEventTests.cpp     # Event serialization and validation coverage
+│   ├── RadishStoreTests.cpp     # In-memory mutation and TTL coverage
+│   ├── RespCodecTests.cpp       # RESP parsing and response coverage
+│   ├── TcpServerTests.cpp       # Loopback TCP server integration coverage
+│   └── TestSupport.h            # Temporary database-file fixture
 └── README.md
 ```
 
@@ -403,6 +403,34 @@ cmake -S . -B cmake-build-debug
 cmake --build cmake-build-debug --target radish-server radish-cli
 ctest --test-dir cmake-build-debug --output-on-failure
 ./cmake-build-debug/radish-server
+```
+
+## Benchmarking
+
+`radish-bench` drives identical RESP workloads against Radish or Redis and writes one JSON and CSV result per run.
+Each result reports operations, errors, throughput, and latency minimum, mean, p50, p99, p99.5, and maximum.
+
+```bash
+cmake --build build --target radish-bench
+
+# Run the same default workload matrix separately for Radish and Redis.
+./scripts/benchmark.sh radish volatile results/radish-volatile
+./scripts/benchmark.sh redis volatile results/redis-volatile
+./scripts/benchmark.sh radish durable results/radish-durable
+./scripts/benchmark.sh redis durable results/redis-durable
+```
+
+The runner starts each server on loopback with an isolated temporary data directory. Volatile mode disables
+persistence for both servers. Durable mode uses Radish's flushed AOF and Redis AOF with `appendfsync no` by
+default; these are buffered-durability measurements, not equivalent power-loss guarantees. Set
+`REDIS_APPEND_FSYNC=always` to measure Redis's stronger fsync mode separately.
+
+For a short local smoke run:
+
+```bash
+BENCHMARK_REPETITIONS=1 BENCHMARK_WARMUP_SECONDS=0 BENCHMARK_DURATION_SECONDS=5 \
+BENCHMARK_CLIENTS="1" BENCHMARK_PIPELINES="1" BENCHMARK_WORKLOADS="GET_HIT" \
+./scripts/benchmark.sh radish volatile results/smoke
 ```
 
 ---

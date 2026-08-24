@@ -93,3 +93,18 @@ TEST_CASE("RadishDB compaction retains the live materialized state", "[database]
     REQUIRE_FALSE(database.Exists("kept"));
     REQUIRE_FALSE(database.Exists("discarded"));
 }
+
+TEST_CASE("RadishDB volatile mode does not create or replay an AOF", "[database][volatile]")
+{
+    TemporaryDatabaseFile file{ "database-volatile" };
+
+    {
+        RadishDB<std::string> database(file.DatabaseName(), PersistenceMode::Disabled);
+        database.Create("ephemeral", "value");
+        REQUIRE(database.Get("ephemeral") == "value");
+        REQUIRE_FALSE(std::filesystem::exists(file.LogFile()));
+    }
+
+    RadishDB<std::string> restarted(file.DatabaseName(), PersistenceMode::Disabled);
+    REQUIRE_FALSE(restarted.Exists("ephemeral"));
+}

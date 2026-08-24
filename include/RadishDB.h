@@ -7,26 +7,35 @@
 
 #include <shared_mutex>
 #include <string>
+#include <optional>
+#include <stdexcept>
 
 #include "RadishStore.h"
 #include "persistence/PersistenceLog.h"
+
+enum class PersistenceMode {
+    Flush,
+    Disabled,
+};
 
 template<typename TValue>
 class RadishDB
 {
 public:
-    explicit RadishDB(const std::string& filename)
+    explicit RadishDB(const std::string& filename, const PersistenceMode persistenceMode = PersistenceMode::Flush)
         : m_store{ -1 }
-        , m_persistence{ filename + ".radish", "./" }
     {
-        m_persistence.Replay(m_store);
+        InitializePersistence(filename, persistenceMode);
     }
 
-    explicit RadishDB(const std::string& filename, const Timestamp& ttl)
+    explicit RadishDB(
+        const std::string& filename,
+        const Timestamp& ttl,
+        const PersistenceMode persistenceMode = PersistenceMode::Flush
+    )
         : m_store{ ttl }
-        , m_persistence{ filename + ".radish", "./" }
     {
-        m_persistence.Replay(m_store);
+        InitializePersistence(filename, persistenceMode);
     }
 
     void Create(const std::string& key, const TValue& value)
@@ -61,7 +70,9 @@ public:
     {
         std::lock_guard lock{ m_mutex };
 
-        m_persistence.Compact();
+        if (m_persistence) {
+            m_persistence->Compact();
+        }
     }
 
     std::optional<TValue> Get(const std::string& key)
@@ -106,17 +117,50 @@ private:
     bool Commit(const RadishEvent<TValue>& event)
     {
         auto stagedStore = m_store;
-        if (!m_persistence.Apply(stagedStore, event)) {
+        const auto applied = m_persistence
+            ? m_persistence->Apply(stagedStore, event)
+            : ApplyEvent(stagedStore, event);
+
+        if (!applied) {
             return false;
         }
 
-        m_persistence.Append(event);
+        if (m_persistence) {
+            m_persistence->Append(event);
+        }
         m_store.Swap(stagedStore);
         return true;
     }
 
+    void InitializePersistence(const std::string& filename, const PersistenceMode persistenceMode)
+    {
+        if (persistenceMode == PersistenceMode::Disabled) {
+            return;
+        }
+
+        m_persistence.emplace(filename + ".radish", "./");
+        m_persistence->Replay(m_store);
+    }
+
+    static bool ApplyEvent(RadishStore<TValue>& store, const RadishEvent<TValue>& event)
+    {
+        switch (event.GetEventType()) {
+            case CREATE:
+                store.Create(*event.GetKey(), *event.GetPayload(), event.GetTimestamp());
+                return true;
+            case RENAME:
+                return store.Rename(*event.GetKey(), *event.GetRenameKey());
+            case DELETE:
+                return store.Delete(*event.GetKey());
+            case CLEAR:
+                return store.Clear();
+            default:
+                throw std::runtime_error("Unknown persistence event type");
+        }
+    }
+
     RadishStore<TValue> m_store;
-    PersistenceLog<TValue> m_persistence;
+    std::optional<PersistenceLog<TValue>> m_persistence;
     mutable std::shared_mutex m_mutex{};
 };
 
