@@ -333,7 +333,11 @@ radish/
 ├── src/
 │   └── main.cpp                # Entry point
 ├── tests/
-│   └── PersistenceTests.cpp    # Replay and AOF regression coverage
+│   ├── PersistenceLogTests.cpp # AOF read/write, compaction, and failure-path coverage
+│   ├── RadishDBTests.cpp       # Public API, restart, TTL, and compaction coverage
+│   ├── RadishEventTests.cpp    # Event serialization and validation coverage
+│   ├── RadishStoreTests.cpp    # In-memory mutation and TTL coverage
+│   └── TestSupport.h           # Temporary database-file fixture
 └── README.md
 ```
 
@@ -348,6 +352,22 @@ cmake -S . -B cmake-build-debug
 cmake --build cmake-build-debug
 ctest --test-dir cmake-build-debug --output-on-failure
 ./cmake-build-debug/radish
+```
+
+With a configured `cmake-build-debug` directory, the Bash wrappers mirror the orderbook workflow:
+
+```bash
+./scripts/app-build.sh
+./scripts/app-test.sh
+./scripts/app-test-verbose.sh
+```
+
+Or use the Makefile for an npm-script-like workflow:
+
+```bash
+make build
+make test
+make test-verbose
 ```
 
 ---

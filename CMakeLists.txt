@@ -12,9 +12,41 @@ target_link_libraries(radish PRIVATE radish_headers)
 
 include(CTest)
 if(BUILD_TESTING)
-    add_executable(radish_tests tests/PersistenceTests.cpp)
-    target_link_libraries(radish_tests PRIVATE radish_headers)
-    add_test(NAME radish_tests COMMAND radish_tests)
+    include(FetchContent)
+
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG v3.7.1
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(Catch2)
+
+    add_executable(
+        radish_tests
+        tests/RadishDBTests.cpp
+        tests/RadishEventTests.cpp
+        tests/RadishStoreTests.cpp
+        tests/PersistenceLogTests.cpp
+    )
+    target_link_libraries(radish_tests PRIVATE radish_headers Catch2::Catch2WithMain)
+
+    include(Catch)
+    catch_discover_tests(radish_tests)
+
+    add_custom_target(
+        app-test
+        COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --output-on-failure
+        DEPENDS radish_tests
+        USES_TERMINAL
+    )
+
+    add_custom_target(
+        app-test-verbose
+        COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --verbose
+        DEPENDS radish_tests
+        USES_TERMINAL
+    )
 endif()
 
 set(RADISH_HEADERS

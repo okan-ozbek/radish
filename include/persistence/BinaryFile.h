@@ -11,6 +11,7 @@
 #include <stdexcept>
 
 #include "../helpers/Concepts.h"
+#include "../helpers/Types.h"
 
 class BinaryFile {
 public:
