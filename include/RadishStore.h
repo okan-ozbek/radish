@@ -9,12 +9,14 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <algorithm>
 
 #include "helpers/SystemClock.h"
 #include "helpers/Types.h"
 
 template<typename TValue>
-class RadishStore {
+class RadishStore
+{
 public:
     using DataMap = std::unordered_map<std::string, TValue>;
     using TTLMap = std::unordered_map<std::string, Timestamp>;
@@ -22,7 +24,8 @@ public:
 
     explicit RadishStore(const Timestamp& ttl) : m_ttl{ ttl } {}
 
-    std::optional<TValue> Get(const std::string& key) {
+    std::optional<TValue> Get(const std::string& key)
+    {
         if (m_data.contains(key) && !IsExpired(key)) {
             return m_data.at(key);
         }
@@ -30,7 +33,8 @@ public:
         return std::nullopt;
     }
 
-    Timestamp Create(const std::string& key, const TValue& value, const std::optional<Timestamp> timestamp = std::nullopt) {
+    Timestamp Create(const std::string& key, const TValue& value, const std::optional<Timestamp> timestamp = std::nullopt)
+    {
         m_data[key] = value;
 
         if (HasTimeToLive()) {
@@ -40,9 +44,10 @@ public:
         return -1;
     }
 
-    void Rename(const std::string& oldKey, const std::string& newKey) {
+    bool Rename(const std::string& oldKey, const std::string& newKey)
+    {
         if (m_data.contains(oldKey) == false || IsExpired(oldKey)) {
-            return;
+            return false;
         }
 
         m_data[newKey] = m_data[oldKey];
@@ -50,21 +55,35 @@ public:
 
         if (const auto ttlIt = m_ttlData.find(oldKey); ttlIt != m_ttlData.end()) {
             m_ttlData[newKey] = ttlIt->second;
-        } else {
+            m_ttlData.erase(ttlIt);
+        }
+        else {
             m_ttlData.erase(newKey);
         }
+
+        return true;
     }
 
-    void Delete(const std::string& key) {
-        m_data.erase(key);
+    bool Delete(const std::string& key)
+    {
+        m_ttlData.erase(key);
+        return m_data.erase(key) != 0;
     }
 
-    void Clear() {
+    bool Clear()
+    {
+        if (m_data.empty()) {
+            return false;
+        }
+
         m_data.clear();
         m_ttlData.clear();
+        return true;
     }
 
-    [[nodiscard]] Keys Scan() const {
+    [[nodiscard]]
+    Keys Scan() const
+    {
         Keys keys{};
 
         for (const auto& [key, value] : m_data) {
@@ -78,11 +97,17 @@ public:
         return keys;
     }
 
-    [[nodiscard]] std::size_t Size() const {
-        return m_data.size();
+    [[nodiscard]]
+    std::size_t Size() const
+    {
+        return std::count_if(m_data.begin(), m_data.end(), [this](const auto& entry) {
+            return !IsExpired(entry.first);
+        });
     }
 
-    [[nodiscard]] bool Exists(const std::string& key) const {
+    [[nodiscard]]
+    bool Exists(const std::string& key) const
+    {
         if (IsExpired(key)) {
             return false;
         }
@@ -90,7 +115,9 @@ public:
         return m_data.contains(key);
     }
 
-    [[nodiscard]] bool IsExpired(const std::string& key) const {
+    [[nodiscard]]
+    bool IsExpired(const std::string& key) const
+    {
         if (HasTimeToLive() && m_ttlData.contains(key)) {
             return m_clock.Now() >= m_ttlData.at(key);
         }
@@ -98,12 +125,31 @@ public:
         return false;
     }
 
-    [[nodiscard]] bool HasTimeToLive() const {
+    [[nodiscard]]
+    bool HasTimeToLive() const
+    {
         return m_ttl != -1;
     }
 
-    [[nodiscard]] Timestamp GetTTL() const {
+    [[nodiscard]]
+    Timestamp GetTTL() const
+    {
         return m_ttl;
+    }
+
+    [[nodiscard]]
+    Timestamp NewExpiryTimestamp() const
+    {
+        return HasTimeToLive() ? m_clock.Now() + m_ttl : -1;
+    }
+
+    void Swap(RadishStore& other) noexcept
+    {
+        using std::swap;
+        swap(m_clock, other.m_clock);
+        swap(m_ttl, other.m_ttl);
+        m_data.swap(other.m_data);
+        m_ttlData.swap(other.m_ttlData);
     }
 
 private:
@@ -113,7 +159,8 @@ private:
     DataMap m_data{};
     TTLMap m_ttlData{};
 
-    Timestamp InsertTimestampForKey(const std::string& key, const std::optional<Timestamp> timestamp = std::nullopt) {
+    Timestamp InsertTimestampForKey(const std::string& key, const std::optional<Timestamp> timestamp = std::nullopt)
+    {
         const auto value = (timestamp != std::nullopt) ? timestamp.value() : m_clock.Now() + m_ttl;
         m_ttlData[key] = value;
 

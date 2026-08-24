@@ -5,9 +5,7 @@
 #ifndef RADISH_RADISHFILE_H
 #define RADISH_RADISHFILE_H
 
-
 #include <string>
-#include <iostream>
 #include <mutex>
 
 #include "LogWriter.h"
@@ -17,7 +15,8 @@ template<typename TValue> class RadishStore;
 
 template<typename TValue>
 requires BinaryType<TValue> || HeapAllocated<TValue>
-class PersistenceLog {
+class PersistenceLog
+{
 public:
     using Events          = PersistenceLogTypes<TValue>::Events;
     using Event           = PersistenceLogTypes<TValue>::Event;
@@ -30,28 +29,35 @@ public:
         : m_writer(filename, path)
     {}
 
-    ~PersistenceLog() {
-        try {
-            std::lock_guard lock{ m_mutex };
+    ~PersistenceLog() = default;
 
-            std::cout << "Compacting log file before destruction...\n";
-            m_writer.Compact();
-        }
-        catch (...) {
-            std::cout << "Exception caught in ~PersistenceLog()\n";
-        }
-    }
-
-    void Append(const Event& row) {
+    void Append(const Event& row)
+    {
         std::lock_guard lock{ m_mutex };
 
         m_writer.Append(row);
     }
 
-    void Replay(RadishStore<TValue>& store) {
+    void Replay(RadishStore<TValue>& store)
+    {
         std::lock_guard lock{ m_mutex };
 
         m_writer.Replay(store);
+    }
+
+    [[nodiscard]]
+    bool Apply(RadishStore<TValue>& store, const Event& event)
+    {
+        std::lock_guard lock{ m_mutex };
+
+        return m_writer.ApplyEvent(store, event);
+    }
+
+    void Compact()
+    {
+        std::lock_guard lock{ m_mutex };
+
+        m_writer.Compact();
     }
 
 private:

@@ -17,7 +17,7 @@ concept HeapAllocated = requires(TValue value)
 {
     { value.size() } -> std::convertible_to<std::size_t>;
     { value.data() };
-};
+} && std::is_trivially_copyable_v<typename TValue::value_type>;
 
 
 #endif //RADISH_CONCEPTS_H
