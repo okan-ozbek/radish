@@ -1,7 +1,6 @@
 #include "network/RespCodec.h"
 
 #include <charconv>
-#include <limits>
 
 namespace radish::network
 {
@@ -121,6 +120,17 @@ RespParseResult RespCodec::ParseCommand(const std::string_view input)
         offset,
         {}
     };
+}
+
+std::string RespCodec::EncodeCommand(const std::vector<std::string>& arguments)
+{
+    std::string result = "*" + std::to_string(arguments.size()) + "\r\n";
+
+    for (const auto& argument : arguments) {
+        result += "$" + std::to_string(argument.size()) + "\r\n" + argument + "\r\n";
+    }
+
+    return result;
 }
 
 std::string RespCodec::SimpleString(const std::string_view value)

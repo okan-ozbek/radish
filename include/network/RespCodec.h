@@ -43,6 +43,7 @@ public:
     static constexpr std::size_t kMaxBufferedInput = 8 * 1024 * 1024;
 
     [[nodiscard]] static RespParseResult ParseCommand(std::string_view input);
+    [[nodiscard]] static std::string EncodeCommand(const std::vector<std::string>& arguments);
 
     [[nodiscard]] static std::string SimpleString(std::string_view value);
     [[nodiscard]] static std::string Error(std::string_view message);

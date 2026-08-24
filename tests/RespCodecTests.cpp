@@ -34,6 +34,14 @@ TEST_CASE("RESP codec preserves binary-safe bulk strings", "[resp][codec]")
     REQUIRE(parsed.command.arguments[1] == std::string{ "a\0b", 3 });
 }
 
+TEST_CASE("RESP codec encodes binary-safe client commands", "[resp][codec]")
+{
+    const std::vector<std::string> command{ "SET", "key", std::string{ "a\0b", 3 } };
+    const auto expected = std::string{ "*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$3\r\n" } + std::string{ "a\0b", 3 } + "\r\n";
+
+    REQUIRE(RespCodec::EncodeCommand(command) == expected);
+}
+
 TEST_CASE("RESP codec rejects malformed and oversized frames", "[resp][codec][failure]")
 {
     REQUIRE(RespCodec::ParseCommand("+PING\r\n").status == RespParseResult::Status::Error);

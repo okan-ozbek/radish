@@ -18,6 +18,39 @@
 
 ---
 
+## Quick Start
+
+Build the server, CLI, and tests:
+
+```bash
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build --target radish-server radish-cli
+ctest --test-dir build --output-on-failure
+```
+
+Start Radish on its loopback-default address:
+
+```bash
+./build/radish-server --port 6379 --data-file radish
+```
+
+Use the bundled CLI in another terminal:
+
+```bash
+./build/radish-cli -p 6379 SET greeting hello
+./build/radish-cli -p 6379 GET greeting
+./build/radish-cli -p 6379
+```
+
+`redis-cli` also works because Radish implements RESP:
+
+```bash
+redis-cli -p 6379 PING
+redis-cli -3 -p 6379 HELLO 3
+```
+
+---
+
 ## About
 
 Redis is one of the most battle-tested pieces of infrastructure software ever written. It powers caching layers,
@@ -152,6 +185,17 @@ state that would be produced by replaying the full original log, in the minimum 
 
 The strategy pattern keeps compaction logic isolated per operation — adding a new `EventType` requires only
 a new strategy class, with no changes to `PersistenceLog` itself.
+
+### TCP Server and RESP
+
+`radish-server` uses standalone Asio to serve many non-blocking TCP connections on a single event-loop thread.
+It binds to `127.0.0.1` by default; pass `--bind 0.0.0.0` only on a trusted network because this first server
+does not provide TLS or authentication.
+
+Connections begin in RESP2 for broad Redis-client compatibility and can upgrade with `HELLO 3` to receive RESP3
+responses. The supported command subset is `HELLO [2|3]`, `PING [message]`, `GET`, `SET`, `DEL`, `RENAME`,
+`EXISTS`, `KEYS *`, `DBSIZE`, `FLUSHDB`, and `QUIT`. The bundled `radish-cli` supports both interactive use and
+one-shot commands; `redis-cli` works over the same RESP wire protocol.
 
 ### Event Model — `RadishEvent<TValue>`
 
@@ -301,8 +345,8 @@ All short-term features are complete.
 
 | Feature | Description |
 |---|---|
-| **TCP Server** | Wrap `RadishDB` in a TCP server using standalone Asio (no Boost). Accept connections and dispatch commands — making Radish something you can `telnet` into. |
-| **RESP Protocol** | Implement the Redis Serialisation Protocol so that real Redis clients (`redis-cli`, client libraries) talk to Radish without modification. |
+| **TCP Server** | Done | Standalone Asio TCP server with loopback-default binding, pipelining, request limits, and graceful signal shutdown. |
+| **RESP2 / RESP3 Protocol** | Done | RESP2 by default with `HELLO 3` negotiation, allowing `redis-cli`, `radish-cli`, and compatible clients to connect. |
 | **List type** | `LPUSH`, `RPUSH`, `LPOP`, `RPOP`, `LRANGE`. Backed by `std::deque`. |
 | **Set type** | `SADD`, `SREM`, `SMEMBERS`, `SINTER`. Backed by `std::unordered_set`. |
 | **Pub/Sub** | Clients subscribe to channels, other clients publish messages. Requires the networking layer first. |
@@ -327,16 +371,23 @@ radish/
 │   │   ├── LogReader.h         # Binary file reader: deserialises events one at a time
 │   │   ├── LogWriter.h         # Append / Replay / Compact; owns a LogReader internally
 │   │   ├── PersistenceLog.h    # Thread-safe AOF facade: mutex + delegates to LogWriter
+│   ├── network/
+│   │   ├── RespCodec.h          # RESP2/RESP3 request and response codec
+│   │   └── TcpServer.h          # Asio TCP server interface
 │   ├── RadishDB.h              # Public facade: composes RadishStore + PersistenceLog + shared_mutex
 │   ├── RadishEvent.h           # Typed event: op + timestamp + key + payload
 │   └── RadishStore.h           # Pure in-memory key-value store with TTL
 ├── src/
-│   └── main.cpp                # Entry point
+│   ├── cli_main.cpp            # radish-cli entry point
+│   ├── main.cpp                # radish-server entry point
+│   └── network/                # RESP codec and TCP server implementation
 ├── tests/
 │   ├── PersistenceLogTests.cpp # AOF read/write, compaction, and failure-path coverage
 │   ├── RadishDBTests.cpp       # Public API, restart, TTL, and compaction coverage
 │   ├── RadishEventTests.cpp    # Event serialization and validation coverage
 │   ├── RadishStoreTests.cpp    # In-memory mutation and TTL coverage
+│   ├── RespCodecTests.cpp      # RESP parsing and response coverage
+│   ├── TcpServerTests.cpp      # Loopback TCP server integration coverage
 │   └── TestSupport.h           # Temporary database-file fixture
 └── README.md
 ```
@@ -349,25 +400,9 @@ Requires CMake 3.25+ and a C++23 compiler.
 
 ```bash
 cmake -S . -B cmake-build-debug
-cmake --build cmake-build-debug
+cmake --build cmake-build-debug --target radish-server radish-cli
 ctest --test-dir cmake-build-debug --output-on-failure
-./cmake-build-debug/radish
-```
-
-With a configured `cmake-build-debug` directory, the Bash wrappers mirror the orderbook workflow:
-
-```bash
-./scripts/app-build.sh
-./scripts/app-test.sh
-./scripts/app-test-verbose.sh
-```
-
-Or use the Makefile for an npm-script-like workflow:
-
-```bash
-make build
-make test
-make test-verbose
+./cmake-build-debug/radish-server
 ```
 
 ---
