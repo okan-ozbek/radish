@@ -7,18 +7,23 @@
 #include <string_view>
 #include <vector>
 
-namespace radish::network {
-enum class RespVersion {
+namespace radish::network
+{
+enum class RespVersion
+{
     Resp2,
     Resp3,
 };
 
-struct RespCommand {
+struct RespCommand
+{
     std::vector<std::string> arguments;
 };
 
-struct RespParseResult {
-    enum class Status {
+struct RespParseResult
+{
+    enum class Status
+    {
         Complete,
         Incomplete,
         Error,
@@ -30,7 +35,8 @@ struct RespParseResult {
     std::string error{};
 };
 
-class RespCodec {
+class RespCodec
+{
 public:
     static constexpr std::size_t kMaxArguments = 1024;
     static constexpr std::size_t kMaxBulkLength = 4 * 1024 * 1024;

@@ -10,8 +10,10 @@
 
 #include "RadishDB.h"
 
-namespace radish::network {
-class TcpServer {
+namespace radish::network
+{
+class TcpServer
+{
 public:
     TcpServer(asio::io_context& context, RadishDB<std::string>& database, const std::string& bindAddress, std::uint16_t port);
     ~TcpServer();
