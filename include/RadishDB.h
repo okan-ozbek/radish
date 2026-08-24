@@ -36,25 +36,25 @@ public:
         Commit(RadishEvent<TValue>{ CREATE, m_store.NewExpiryTimestamp(), key, std::nullopt, value });
     }
 
-    void Rename(const std::string& oldKey, const std::string& newKey)
+    bool Rename(const std::string& oldKey, const std::string& newKey)
     {
         std::lock_guard lock{ m_mutex };
 
-        Commit(RadishEvent<TValue>{ RENAME, -1, oldKey, newKey });
+        return Commit(RadishEvent<TValue>{ RENAME, -1, oldKey, newKey });
     }
 
-    void Delete(const std::string& key)
+    bool Delete(const std::string& key)
     {
         std::lock_guard lock{ m_mutex };
 
-        Commit(RadishEvent<TValue>{ DELETE, -1, key });
+        return Commit(RadishEvent<TValue>{ DELETE, -1, key });
     }
 
-    void Clear()
+    bool Clear()
     {
         std::lock_guard lock{ m_mutex };
 
-        Commit(RadishEvent<TValue>{ CLEAR, -1 });
+        return Commit(RadishEvent<TValue>{ CLEAR, -1 });
     }
 
     void Compact()
@@ -103,15 +103,16 @@ public:
     }
 
 private:
-    void Commit(const RadishEvent<TValue>& event)
+    bool Commit(const RadishEvent<TValue>& event)
     {
         auto stagedStore = m_store;
         if (!m_persistence.Apply(stagedStore, event)) {
-            return;
+            return false;
         }
 
         m_persistence.Append(event);
         m_store.Swap(stagedStore);
+        return true;
     }
 
     RadishStore<TValue> m_store;
