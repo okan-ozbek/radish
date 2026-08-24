@@ -116,7 +116,7 @@ private:
         };
     }
 
-    CommandResult HandlePing(const RespCommand& command, const std::string_view name) const {
+    CommandResult HandlePing(const RespCommand& command, const std::string_view name) {
         if (command.arguments.size() == 1) {
             return {
                 RespCodec::SimpleString("PONG"),
@@ -131,7 +131,7 @@ private:
         return WrongArity(name);
     }
 
-    CommandResult HandleGet(const RespCommand& command, const std::string_view name) const
+    CommandResult HandleGet(const RespCommand& command, const std::string_view name)
     {
         if (command.arguments.size() != 2) {
             return WrongArity(name);
@@ -143,7 +143,7 @@ private:
         };
     }
 
-    CommandResult HandleSet(const RespCommand& command, const std::string_view name) const
+    CommandResult HandleSet(const RespCommand& command, const std::string_view name)
     {
         if (command.arguments.size() != 3) {
             return WrongArity(name);
@@ -157,7 +157,7 @@ private:
         };
     }
 
-    CommandResult HandleDelete(const RespCommand& command, const std::string_view name) const
+    CommandResult HandleDelete(const RespCommand& command, const std::string_view name)
     {
         if (command.arguments.size() < 2) {
             return WrongArity(name);
@@ -175,7 +175,7 @@ private:
         };
     }
 
-    CommandResult HandleRename(const RespCommand& command, const std::string_view name) const
+    CommandResult HandleRename(const RespCommand& command, const std::string_view name)
     {
         if (command.arguments.size() != 3) {
             return WrongArity(name);
@@ -194,7 +194,7 @@ private:
         };
     }
 
-    CommandResult HandleExists(const RespCommand& command, const std::string_view name) const
+    CommandResult HandleExists(const RespCommand& command, const std::string_view name)
     {
         if (command.arguments.size() < 2) {
             return WrongArity(name);
@@ -212,7 +212,7 @@ private:
         };
     }
 
-    CommandResult HandleKeys(const RespCommand& command, const std::string_view name) const
+    CommandResult HandleKeys(const RespCommand& command, const std::string_view name)
     {
         if (command.arguments.size() != 2) {
             return WrongArity(name);
@@ -231,7 +231,7 @@ private:
         };
     }
 
-    CommandResult HandleDatabaseSize(const RespCommand& command, const std::string_view name) const
+    CommandResult HandleDatabaseSize(const RespCommand& command, const std::string_view name)
     {
         if (command.arguments.size() != 1) {
             return WrongArity(name);
@@ -243,7 +243,7 @@ private:
         };
     }
 
-    CommandResult HandleFlushDatabase(const RespCommand& command, const std::string_view name) const {
+    CommandResult HandleFlushDatabase(const RespCommand& command, const std::string_view name) {
         if (command.arguments.size() != 1) {
             return WrongArity(name);
         }
@@ -254,7 +254,7 @@ private:
         };
     }
 
-    static CommandResult HandleQuit(const RespCommand& command, std::string_view name) {
+    CommandResult HandleQuit(const RespCommand& command, std::string_view name) {
         if (command.arguments.size() != 1) {
             return WrongArity(name);
         }
