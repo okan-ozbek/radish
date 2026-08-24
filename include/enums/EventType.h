@@ -9,14 +9,17 @@
 #include <string>
 #include <cstdint>
 
-enum EventType : uint8_t {
+enum EventType : uint8_t
+{
     CREATE = 0,
     RENAME = 1,
     DELETE = 2,
     CLEAR  = 3,
 };
 
-static std::optional<EventType> TryGetEventTypeByName(const std::string& name) {
+[[maybe_unused]]
+static std::optional<EventType> TryGetEventTypeByName(const std::string& name)
+{
     if (name == "CREATE") return CREATE;
     if (name == "RENAME") return RENAME;
     if (name == "DELETE") return DELETE;
@@ -25,7 +28,9 @@ static std::optional<EventType> TryGetEventTypeByName(const std::string& name) {
     return std::nullopt;
 }
 
-static std::optional<std::string> TryGetNameByEventType(const EventType& type) {
+[[maybe_unused]]
+static std::optional<std::string> TryGetNameByEventType(const EventType& type)
+{
     if (type == CREATE) return "CREATE";
     if (type == RENAME) return "RENAME";
     if (type == DELETE) return "DELETE";

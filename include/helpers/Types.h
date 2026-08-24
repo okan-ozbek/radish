@@ -25,7 +25,8 @@ using Timestamp = long long;
 using BinarySize = uint32_t;
 
 template<typename TValue>
-struct PersistenceLogTypes {
+struct PersistenceLogTypes
+{
     using Events          = std::vector<RadishEvent<TValue>>;
     using Event           = RadishEvent<TValue>;
     using EventsMap       = std::unordered_map<std::string, RadishEvent<TValue>>;

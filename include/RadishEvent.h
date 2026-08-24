@@ -7,6 +7,7 @@
 
 
 #include <string>
+#include <stdexcept>
 
 #include "persistence/BinaryFile.h"
 #include "enums/EventType.h"
@@ -14,7 +15,8 @@
 
 template<typename TValue>
 requires BinaryType<TValue> || HeapAllocated<TValue>
-class RadishEvent {
+class RadishEvent
+{
 public:
     RadishEvent() = default;
 
@@ -32,7 +34,11 @@ public:
         , m_payload{ std::move(payload) }
     {}
 
-    void Serialize(std::ofstream& file) const {
+    template<typename TStream>
+    void Serialize(TStream& file) const
+    {
+        ValidateType();
+
         BinaryFile::Write<EventType>(file, m_type);
         BinaryFile::Write<Timestamp>(file, m_timestamp);
 
@@ -49,8 +55,17 @@ public:
         BinaryFile::Write<TValue>(file, m_payload);
     }
 
-    void Deserialize(std::ifstream& file) {
+    template<typename TStream>
+    void Deserialize(TStream& file)
+    {
+        m_key.reset();
+        m_renameKey.reset();
+        m_payload.reset();
+
         BinaryFile::Read<EventType>(file, m_type);
+
+        ValidateType();
+
         BinaryFile::Read<Timestamp>(file, m_timestamp);
 
         if (m_type == CLEAR) return;
@@ -66,24 +81,39 @@ public:
         BinaryFile::Read<TValue>(file, m_payload);
     }
 
-    [[nodiscard]] EventType GetEventType() const {
+    [[nodiscard]]
+    EventType GetEventType() const
+    {
         return m_type;
     }
 
-    [[nodiscard]] Timestamp GetTimestamp() const {
+    [[nodiscard]]
+    Timestamp GetTimestamp() const
+    {
         return m_timestamp;
     }
 
-    [[nodiscard]] std::optional<std::string> GetKey() const {
+    [[nodiscard]]
+    std::optional<std::string> GetKey() const
+    {
         return m_key;
     }
 
-    [[nodiscard]] std::optional<std::string> GetRenameKey() const {
+    [[nodiscard]]
+    std::optional<std::string> GetRenameKey() const
+    {
         return m_renameKey;
     }
 
-    [[nodiscard]] std::optional<TValue> GetPayload() const {
+    [[nodiscard]]
+    std::optional<TValue> GetPayload() const
+    {
         return m_payload;
+    }
+
+    void SetKey(std::string key)
+    {
+        m_key = std::move(key);
     }
 
 private:
@@ -92,6 +122,13 @@ private:
     std::optional<std::string> m_key{ std::nullopt };
     std::optional<std::string> m_renameKey{ std::nullopt };
     std::optional<TValue> m_payload{ std::nullopt };
+
+    void ValidateType() const
+    {
+        if (m_type != CREATE && m_type != RENAME && m_type != DELETE && m_type != CLEAR) {
+            throw std::runtime_error("Invalid event type in persistence log");
+        }
+    }
 };
 
 

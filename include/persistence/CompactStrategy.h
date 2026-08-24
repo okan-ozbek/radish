@@ -25,7 +25,8 @@ public:
 // TODO: Can move to separate file it grows to large
 
 template<typename TValue>
-class CreateCompactStrategy final : public CompactStrategy<TValue> {
+class CreateCompactStrategy final : public CompactStrategy<TValue>
+{
 public:
     using Event = RadishEvent<TValue>;
     using EventsMap = std::unordered_map<std::string, RadishEvent<TValue>>;
@@ -38,7 +39,8 @@ public:
 };
 
 template<typename TValue>
-class RenameCompactStrategy final : public CompactStrategy<TValue> {
+class RenameCompactStrategy final : public CompactStrategy<TValue>
+{
 public:
     using Event = RadishEvent<TValue>;
     using EventsMap = std::unordered_map<std::string, RadishEvent<TValue>>;
@@ -50,13 +52,17 @@ public:
             const auto entry = it->second;
             events.erase(it);
 
-            events[event.GetRenameKey().value()] = entry;
+            auto renamedEntry = entry;
+
+            renamedEntry.SetKey(event.GetRenameKey().value());
+            events[event.GetRenameKey().value()] = std::move(renamedEntry);
         }
     }
 };
 
 template<typename TValue>
-class DeleteCompactStrategy final : public CompactStrategy<TValue> {
+class DeleteCompactStrategy final : public CompactStrategy<TValue>
+{
 public:
     using Event = RadishEvent<TValue>;
     using EventsMap = std::unordered_map<std::string, RadishEvent<TValue>>;
@@ -69,14 +75,15 @@ public:
 };
 
 template<typename TValue>
-class ClearCompactStrategy final : public CompactStrategy<TValue> {
+class ClearCompactStrategy final : public CompactStrategy<TValue>
+{
 public:
     using Event = RadishEvent<TValue>;
     using EventsMap = std::unordered_map<std::string, RadishEvent<TValue>>;
 
     ~ClearCompactStrategy() override = default;
 
-    void Execute(EventsMap& events, const Event& event) override {
+    void Execute(EventsMap& events, const Event&) override {
         events.clear();
     }
 };
